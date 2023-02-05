@@ -1,0 +1,6 @@
+namespace MikoEngine;
+
+class Rasterizer
+{
+    
+}

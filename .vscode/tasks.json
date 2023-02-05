@@ -2,28 +2,46 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build",
+            "label": "build test",
             "command": "dotnet",
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/RenderEngine.Test/RenderEngine.Test.csproj",
+                "${workspaceFolder}/MikoEngine.Test/MikoEngine.Test.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "publish",
+            "label": "build engine",
             "command": "dotnet",
             "type": "process",
             "args": [
-                "publish",
-                "${workspaceFolder}/RenderEngine.Test/RenderEngine.Test.csproj",
+                "build",
+                "${workspaceFolder}/MikoEngine/MikoEngine.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
-            "problemMatcher": "$msCompile"
+            "problemMatcher": "$msCompile",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build engine release",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/MikoEngine/MikoEngine.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary",
+                "-c",
+                "Release"
+            ],
+            "problemMatcher": "$msCompile",
         },
         {
             "label": "watch",
@@ -33,7 +51,7 @@
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/RenderEngine.Test/RenderEngine.Test.csproj"
+                "${workspaceFolder}/MikoEngine.Test/MikoEngine.Test.csproj"
             ],
             "problemMatcher": "$msCompile"
         }

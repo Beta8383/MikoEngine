@@ -8,11 +8,11 @@
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "build",
+            "preLaunchTask": "build test",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/RenderEngine.Test/bin/Debug/net7.0/RenderEngine.Test.dll",
+            "program": "${workspaceFolder}/MikoEngine.Test/bin/Debug/net7.0/MikoEngine.Test.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/RenderEngine.Test",
+            "cwd": "${workspaceFolder}/MikoEngine.Test",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
             "stopAtEntry": false
