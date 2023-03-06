@@ -1,6 +1,6 @@
 namespace MikoEngine;
 
-class Rasterizer
+class Renderer
 {
     
 }

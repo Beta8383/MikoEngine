@@ -76,10 +76,6 @@ public struct MKVector3 : IEquatable<MKVector3>
         vec1.X * vec2.X + vec1.Y * vec2.Y + vec1.Z * vec2.Z;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static MKVector3 operator %(MKVector3 vec1, MKVector3 vec2) =>
-        new MKVector3(vec1.X * vec2.X, vec1.Y * vec2.Y, vec1.Z * vec2.Z);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MKVector3 operator *(MKVector3 vec, float scale) =>
         new MKVector3(vec.X * scale, vec.Y * scale, vec.Z * scale);
 
@@ -92,6 +88,14 @@ public struct MKVector3 : IEquatable<MKVector3>
             vec1.Y * vec2.Z - vec1.Z * vec2.Y,
             vec1.Z * vec2.X - vec1.X * vec2.Z,
             vec1.X * vec2.Y - vec1.Y * vec2.X);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MKVector3 Lerp(MKVector3 vec1, MKVector3 vec2) =>
+        new MKVector3(vec1.X * vec2.X, vec1.Y * vec2.Y, vec1.Z * vec2.Z);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MKVector3 Lerp(MKVector3 vec1, MKVector3 vec2, float value) =>
+        vec1 * value + vec2 * (1 - value);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public float Distance() =>

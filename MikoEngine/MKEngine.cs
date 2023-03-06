@@ -1,13 +1,11 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿namespace MikoEngine;
+
 using System.Runtime.InteropServices;
 using MikoEngine.Assets;
 using MikoEngine.Components;
 using static MikoEngine.MKMath;
 
-namespace MikoEngine;
-
-public unsafe class MKEngine
+public unsafe partial class MKEngine
 {
     const int BytesPerPixel = 3;
 
@@ -20,7 +18,7 @@ public unsafe class MKEngine
 
     private MKVector4 background;
 
-    List<ModelBase> models = new();
+    List<Model> models = new();
     Light light;
     Camera camera;
 
@@ -50,18 +48,30 @@ public unsafe class MKEngine
     private void SetPixel(MKVector4 color, int bufferIndex)
     {
         int index = bufferIndex * BytesPerPixel;
-        pixelsBuffer[index] = (byte)Limit(color.X, 0, 255);
-        pixelsBuffer[index + 1] = (byte)Limit(color.Y, 0, 255);
-        pixelsBuffer[index + 2] = (byte)Limit(color.Z, 0, 255);
+        pixelsBuffer[index] = (byte)Limit(color.X, 0f, 255f);
+        pixelsBuffer[index + 1] = (byte)Limit(color.Y, 0f, 255f);
+        pixelsBuffer[index + 2] = (byte)Limit(color.Z, 0f, 255f);
     }
 
-    private void Rasterize(ReadOnlySpan<MKVector4> vectors, ReadOnlySpan<int> vectorsIndices, ShaderBase shader)
+#if index
+    private void Rasterize(ReadOnlySpan<MKVector4> vectors, ReadOnlySpan<int> vectorsIndices)
     {
         for (int triangleIndex = 0; triangleIndex < vectorsIndices.Length; triangleIndex += 3)
         {
+            
             ref readonly var vec1 = ref vectors[vectorsIndices[triangleIndex]];
             ref readonly var vec2 = ref vectors[vectorsIndices[triangleIndex + 1]];
             ref readonly var vec3 = ref vectors[vectorsIndices[triangleIndex + 2]];
+#else
+        private void Rasterize(ReadOnlySpan<MKVector4> vectors)
+    {
+        for (int index = 0; index < vectors.Length; index += 3)
+        {
+            
+            ref readonly var vec1 = ref vectors[index];
+            ref readonly var vec2 = ref vectors[index + 1];
+            ref readonly var vec3 = ref vectors[index + 2];
+#endif
 
             int minx = (int)Min(vec1.X, vec2.X, vec3.X);
             int miny = (int)Min(vec1.Y, vec2.Y, vec3.Y);
@@ -91,7 +101,11 @@ public unsafe class MKEngine
                         if (depth < 0 && depth > zBuffer[y * width + x])
                         {
                             zBuffer[y * width + x] = depth;
+#if index
                             coveredIndexBuffer[y * width + x] = triangleIndex;
+#else
+                            coveredIndexBuffer[y * width + x] = index / 3;
+#endif
                             barycentricBuffer[y * width + x].i = i;
                             barycentricBuffer[y * width + x].j = j;
                             barycentricBuffer[y * width + x].k = k;
@@ -103,7 +117,7 @@ public unsafe class MKEngine
         }
     }
 
-    private void Shading(ReadOnlySpan<MKVector4> vectors, ReadOnlySpan<int> vectorsIndices, ReadOnlySpan<float> fragParams, ShaderBase shader)
+    private void Shading(Span<MKVector4> vectors, Span<int> vectorsIndices, Span<float> fragParams, IShader shader)
     {
         Span<float> fragParam = stackalloc float[shader.FragmentDataSize];
         int triangleIndex;
@@ -115,7 +129,7 @@ public unsafe class MKEngine
             {
                 int fragParamIndex1 = vectorsIndices[triangleIndex] * shader.FragmentDataSize;
                 int fragParamIndex2 = vectorsIndices[triangleIndex + 1] * shader.FragmentDataSize;
-                int fragParamIndex3 = vectorsIndices[triangleIndex + 2] * shader.FragmentDataSize;  
+                int fragParamIndex3 = vectorsIndices[triangleIndex + 2] * shader.FragmentDataSize;
 
                 for (int paraIndex = 0; paraIndex < shader.FragmentDataSize; paraIndex++)
                     fragParam[paraIndex] = fragParams[fragParamIndex1 + paraIndex] * barycentricBuffer[bufferIndex].i +
@@ -128,40 +142,49 @@ public unsafe class MKEngine
         }
     }
 
-    private void RenderModel(ModelBase model)
+    private void RenderModel(Model model)
     {
-        var shadertmp = new Shader<Vertex, Fragmentdata>();
-        shadertmp.SetShader<DefaultVertexShader, DefaultFragmentShader>();
-        ShaderBase shader = shadertmp;
+        IShader shader = new TestShader();
 
-        ReadOnlySpan<float> vecInPara = model.VertexData;
-        int verticescount = vecInPara.Length / shader.VertexDataSize;
-        
-        nint fragInParaPtr = Marshal.AllocHGlobal(shader.FragmentDataSize * verticescount * sizeof(float));
-        Span<float> fragInPara = new(fragInParaPtr.ToPointer(), shader.FragmentDataSize * verticescount);
-        Span<MKVector4> vectors = stackalloc MKVector4[verticescount];
-
-        ReadOnlySpan<int> Indices = model.Indices;
-
-        for (int i = 0; i < verticescount; i++)
+        fixed (float* modeldata = model.Data)
         {
-            shader.Vertex(vecInPara.Slice(i * shader.VertexDataSize, shader.VertexDataSize), fragInPara.Slice(i * shader.FragmentDataSize, shader.FragmentDataSize), projectionTransform, cameraTransform, model.ModelTransform, out vectors[i]);
-            vectors[i] = viewportTransform * vectors[i];
-            vectors[i].X /= vectors[i].W;
-            vectors[i].Y /= vectors[i].W;
-            vectors[i].Z /= vectors[i].W;
+            float* a2vs = modeldata;
+
+            int a2vLength = shader.a2vSize / sizeof(float);
+            int verticescount = model.VertexCount;
+
+            int v2fLenght = shader.v2fSize / sizeof(float);
+            nint v2fsAllocPtr = Marshal.AllocHGlobal(shader.v2fSize * verticescount * sizeof(float));
+            float* v2fsPtr = (float*)v2fsAllocPtr;
+
+            nint vectorsAllocPtr = Marshal.AllocHGlobal(verticescount * sizeof(MKVector4));
+            MKVector4* vectorsPtr = (MKVector4*)vectorsAllocPtr;
+            Span<MKVector4> vectors = new(vectorsPtr, verticescount);
+
+            Parallel.For(0, verticescount, index =>
+            {
+                Span<float> a2v = new(a2vs + index * a2vLength, a2vLength);
+                Span<float> v2f = new(v2fsPtr + index * v2fLenght, v2fLenght);
+                ref MKVector4 vector = ref *(vectorsPtr + index);
+                vector = shader.Vert(a2v, v2f);
+                vector = viewportTransform * vector;
+                vector.X /= vector.W;
+                vector.Y /= vector.W;
+                vector.Z /= vector.W;
+            });
+
+
+            Array.Fill<int>(coveredIndexBuffer, -1);
+            Rasterize(vectors);
+            //DrawLine(vertices[model.Indices[i * 3]], vertices[model.Indices[i * 3 + 1]], model.Color);
+            //DrawLine(vertices[model.Indices[i * 3]], vertices[model.Indices[i * 3 + 2]], model.Color);
+            //DrawLine(vertices[model.Indices[i * 3 + 2]], vertices[model.Indices[i * 3 + 1]], model.Color);
+
+            Shading(vectors, Indices, fragInPara, shader);
+
+            Marshal.FreeHGlobal(v2fsAllocPtr);
+            Marshal.FreeHGlobal(vectorsAllocPtr);
         }
-
-
-        Array.Fill<int>(coveredIndexBuffer, -1);
-        Rasterize(vectors, Indices, shader);
-        //DrawLine(vertices[model.Indices[i * 3]], vertices[model.Indices[i * 3 + 1]], model.Color);
-        //DrawLine(vertices[model.Indices[i * 3]], vertices[model.Indices[i * 3 + 2]], model.Color);
-        //DrawLine(vertices[model.Indices[i * 3 + 2]], vertices[model.Indices[i * 3 + 1]], model.Color);
-
-        Shading(vectors, Indices, fragInPara, shader);
-
-        Marshal.FreeHGlobal(fragInParaPtr);
     }
 
     public ReadOnlySpan<byte> GetFrame()
@@ -230,7 +253,7 @@ public unsafe class MKEngine
         return CreateOrthographicTransform(width, height, zNearPlane, zFarPlane) * scale;
     }
 
-    public void SetCamera(Camera camera)
+    public MKEngine SetCamera(Camera camera)
     {
         this.camera = camera;
         if (camera.zNearPlane <= 0 || camera.zFarPlane <= 0 || camera.zNearPlane >= camera.zFarPlane)
@@ -241,13 +264,19 @@ public unsafe class MKEngine
         if (camera.Mode == ProjectionMode.Orthographic)
             projectionTransform = CreateOrthographicTransform(camera.Width, camera.Height, camera.zNearPlane, camera.zFarPlane);
         else projectionTransform = CreatePerspectiveTransform(camera.Width, camera.Height, camera.zNearPlane, camera.zFarPlane);
+
+        return this;
     }
 
-    public void SetLight(Light light)
+    public MKEngine SetLight(Light light)
     {
         this.light = light;
+        return this;
     }
 
-    public void AddModel(ModelBase model) =>
+    public MKEngine AddModel(ModelBase model)
+    {
         models.Add(model);
+        return this;
+    }
 }

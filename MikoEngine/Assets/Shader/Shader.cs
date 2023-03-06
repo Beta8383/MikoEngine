@@ -1,40 +1,39 @@
 namespace MikoEngine.Assets;
 
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using MikoEngine.Components;
 
-public unsafe sealed class Shader<VertexData, FragmentData> : ShaderBase where VertexData : struct where FragmentData : struct
+public abstract class Shader<a2v, v2f> : IShader where a2v : unmanaged where v2f : unmanaged
 {
-    public Shader()
+    public Uniform uni
     {
-        FragmentDataSize = Marshal.SizeOf(typeof(FragmentData)) / sizeof(float);
-        VertexDataSize = Marshal.SizeOf(typeof(VertexData)) / sizeof(float);
+        get;
+        internal set;
     }
 
-    private delegate*<in VertexData, ref FragmentData, MKMatrix4x4, MKMatrix4x4, MKMatrix4x4, out MKVector4, void> vertexShader;
-
-    private delegate*<in FragmentData, Light, Camera, out MKVector4, void> fragmentShader;
-
-    public void SetShader<_vertex, _fragment>() where _vertex : IVertexShader<VertexData, FragmentData> where _fragment : IFragmentShader<FragmentData>
+    public int a2vSize
     {
-        vertexShader = &_vertex.main;
-        fragmentShader = &_fragment.main;
+        get => Marshal.SizeOf<a2v>();
     }
 
-    internal override void Vertex(ReadOnlySpan<float> inPara, Span<float> outPara, MKMatrix4x4 projectionTransform, MKMatrix4x4 cameraTransform, MKMatrix4x4 modelTransform, out MKVector4 Position)
+    public int v2fSize
     {
-        if (vertexShader is null)
-            throw new Exception();
-        ReadOnlySpan<VertexData> vecInPara = MemoryMarshal.Cast<float, VertexData>(inPara);
-        Span<FragmentData> vecOutPara = MemoryMarshal.Cast<float, FragmentData>(outPara);
-        vertexShader(in vecInPara[0], ref vecOutPara[0], projectionTransform, cameraTransform, modelTransform, out Position);
+        get => Marshal.SizeOf<v2f>();
     }
 
-    internal override void Fragment(ReadOnlySpan<float> inPara, Light light, Camera camera, out MKVector4 color)
-    {
-        if (fragmentShader is null)
-            throw new Exception();
-        ReadOnlySpan<FragmentData> fragInPara = MemoryMarshal.Cast<float, FragmentData>(inPara);
-        fragmentShader(in fragInPara[0], light, camera, out color);
-    }
+    public MKVector4 WorldToScreenPos(MKVector3 p) =>
+        uni.projectionTransform * uni.cameraTransform * uni.modelTransform * new MKVector4(p, 1f);
+
+    public abstract MKVector4 Vert(ref a2v input, ref v2f output);
+    public abstract MKVector4 Frag(ref v2f input);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static ref TTo SpanCast<TFrom, TTo>(Span<TFrom> source) =>
+        ref Unsafe.As<TFrom, TTo>(ref MemoryMarshal.GetReference(source));
+
+    public MKVector4 Vert(Span<float> input, Span<float> output) =>
+        Vert(ref SpanCast<float, a2v>(input), ref SpanCast<float, v2f>(output));
+
+    public MKVector4 Frag(Span<float> input) =>
+        Frag(ref SpanCast<float, v2f>(input));
 }
