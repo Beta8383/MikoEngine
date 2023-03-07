@@ -1,5 +1,7 @@
-﻿namespace MikoEngine;
+﻿#define TimeTest
+namespace MikoEngine;
 
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using MikoEngine.Assets;
 using MikoEngine.Components;
@@ -53,9 +55,9 @@ public unsafe partial class MKEngine
         pixelsBuffer[index + 2] = (byte)Limit(color.Z, 0f, 255f);
     }
 
-#if index
-    private void Rasterize(ReadOnlySpan<MKVector4> vectors, ReadOnlySpan<int> vectorsIndices)
+    private void Rasterize(MKVector4* vectors, int count)
     {
+#if index
         for (int triangleIndex = 0; triangleIndex < vectorsIndices.Length; triangleIndex += 3)
         {
             
@@ -63,11 +65,8 @@ public unsafe partial class MKEngine
             ref readonly var vec2 = ref vectors[vectorsIndices[triangleIndex + 1]];
             ref readonly var vec3 = ref vectors[vectorsIndices[triangleIndex + 2]];
 #else
-        private void Rasterize(ReadOnlySpan<MKVector4> vectors)
-    {
-        for (int index = 0; index < vectors.Length; index += 3)
+        for (int index = 0; index < count; index += 3)
         {
-            
             ref readonly var vec1 = ref vectors[index];
             ref readonly var vec2 = ref vectors[index + 1];
             ref readonly var vec3 = ref vectors[index + 2];
@@ -97,7 +96,6 @@ public unsafe partial class MKEngine
                         i *= depth;
                         j *= depth;
                         k *= depth;
-                        //depth = p[0].Z * i + p[1].Z * j + p[2].Z * k;
                         if (depth < 0 && depth > zBuffer[y * width + x])
                         {
                             zBuffer[y * width + x] = depth;
@@ -117,70 +115,107 @@ public unsafe partial class MKEngine
         }
     }
 
-    private void Shading(Span<MKVector4> vectors, Span<int> vectorsIndices, Span<float> fragParams, IShader shader)
+    private void Shading(float* _v2fs, IShader shader)
     {
-        Span<float> fragParam = stackalloc float[shader.FragmentDataSize];
-        int triangleIndex;
+        float* v2fs = _v2fs;
 
-        for (int bufferIndex = 0; bufferIndex < width * height; bufferIndex++)
+        float* v2f = stackalloc float[shader.v2fLength];
+
+        const int pixelsInGroup = 50000;
+        int pixels = width * height;
+        int groupCount = (int)Math.Ceiling(pixels / (float)pixelsInGroup);
+        //100ms
+        Parallel.For(0, groupCount, groupIndex =>
         {
-            triangleIndex = coveredIndexBuffer[bufferIndex];
-            if (triangleIndex != -1)
+            int startIndex = groupIndex * pixelsInGroup;
+            int endIndex = Min((groupIndex + 1) * pixelsInGroup, pixels);
+            for (int bufferIndex = startIndex; bufferIndex < endIndex; bufferIndex++)
             {
-                int fragParamIndex1 = vectorsIndices[triangleIndex] * shader.FragmentDataSize;
-                int fragParamIndex2 = vectorsIndices[triangleIndex + 1] * shader.FragmentDataSize;
-                int fragParamIndex3 = vectorsIndices[triangleIndex + 2] * shader.FragmentDataSize;
+                int vectorIndex = coveredIndexBuffer[bufferIndex];
+                if (vectorIndex != -1)
+                {
+                    int v2fsIndex1 = vectorIndex * 3 * shader.v2fLength;
+                    int v2fsIndex2 = v2fsIndex1 + shader.v2fLength;
+                    int v2fsIndex3 = v2fsIndex2 + shader.v2fLength;
 
-                for (int paraIndex = 0; paraIndex < shader.FragmentDataSize; paraIndex++)
-                    fragParam[paraIndex] = fragParams[fragParamIndex1 + paraIndex] * barycentricBuffer[bufferIndex].i +
-                                        fragParams[fragParamIndex2 + paraIndex] * barycentricBuffer[bufferIndex].j +
-                                        fragParams[fragParamIndex3 + paraIndex] * barycentricBuffer[bufferIndex].k;
-
-                shader.Fragment(fragParam, light, camera, out MKVector4 color);
-                SetPixel(color, bufferIndex);
+                    for (int index = 0; index < shader.v2fLength; index++)
+                        v2f[index] = v2fs[v2fsIndex1 + index] * barycentricBuffer[bufferIndex].i +
+                                     v2fs[v2fsIndex2 + index] * barycentricBuffer[bufferIndex].j +
+                                     v2fs[v2fsIndex3 + index] * barycentricBuffer[bufferIndex].k;
+                    SetPixel(shader.Frag(new(v2f, shader.v2fLength)), bufferIndex);
+                }
             }
-        }
+        });
+        //230ms
+        /*for (int bufferIndex = 0; bufferIndex < pixels; bufferIndex++)
+        {
+            int vectorIndex = coveredIndexBuffer[bufferIndex];
+            if (vectorIndex != -1)
+            {
+                int v2fsIndex1 = vectorIndex * 3 * shader.v2fLength;
+                int v2fsIndex2 = v2fsIndex1 + shader.v2fLength;
+                int v2fsIndex3 = v2fsIndex2 + shader.v2fLength;
+
+                for (int index = 0; index < shader.v2fLength; index++)
+                    v2f[index] = v2fs[v2fsIndex1 + index] * barycentricBuffer[bufferIndex].i +
+                                 v2fs[v2fsIndex2 + index] * barycentricBuffer[bufferIndex].j +
+                                 v2fs[v2fsIndex3 + index] * barycentricBuffer[bufferIndex].k;
+                SetPixel(shader.Frag(new(v2f, shader.v2fLength)), bufferIndex);
+            }
+        }*/
     }
 
     private void RenderModel(Model model)
     {
         IShader shader = new TestShader();
-
         fixed (float* modeldata = model.Data)
         {
+            shader.uni = new()
+            {
+                modelTransform = model.Transform,
+                projectionTransform = projectionTransform,
+                cameraTransform = cameraTransform,
+                light = light,
+                camera = camera
+            };
+
             float* a2vs = modeldata;
 
-            int a2vLength = shader.a2vSize / sizeof(float);
-            int verticescount = model.VertexCount;
+            int a2vLength = shader.a2vLength;
+            int verticescount = model.Data.Length / a2vLength;
 
-            int v2fLenght = shader.v2fSize / sizeof(float);
-            nint v2fsAllocPtr = Marshal.AllocHGlobal(shader.v2fSize * verticescount * sizeof(float));
+            int v2fLenght = shader.v2fLength;
+            nint v2fsAllocPtr = Marshal.AllocHGlobal(shader.v2fLength * verticescount * sizeof(float));
             float* v2fsPtr = (float*)v2fsAllocPtr;
 
             nint vectorsAllocPtr = Marshal.AllocHGlobal(verticescount * sizeof(MKVector4));
             MKVector4* vectorsPtr = (MKVector4*)vectorsAllocPtr;
-            Span<MKVector4> vectors = new(vectorsPtr, verticescount);
 
-            Parallel.For(0, verticescount, index =>
+            TimeTest.Run(() =>
             {
-                Span<float> a2v = new(a2vs + index * a2vLength, a2vLength);
-                Span<float> v2f = new(v2fsPtr + index * v2fLenght, v2fLenght);
-                ref MKVector4 vector = ref *(vectorsPtr + index);
-                vector = shader.Vert(a2v, v2f);
-                vector = viewportTransform * vector;
-                vector.X /= vector.W;
-                vector.Y /= vector.W;
-                vector.Z /= vector.W;
-            });
-
+                for (int index = 0; index < verticescount; index++)
+                //Parallel.For(0, verticescount, index =>
+                {
+                    Span<float> a2v = new(a2vs + index * a2vLength, a2vLength);
+                    Span<float> v2f = new(v2fsPtr + index * v2fLenght, v2fLenght);
+                    ref MKVector4 vector = ref *(vectorsPtr + index);
+                    vector = shader.Vert(a2v, v2f);
+                    vector = viewportTransform * vector;
+                    vector.X /= vector.W;
+                    vector.Y /= vector.W;
+                    vector.Z /= vector.W;
+                }
+            }, "VertexShader");
 
             Array.Fill<int>(coveredIndexBuffer, -1);
-            Rasterize(vectors);
-            //DrawLine(vertices[model.Indices[i * 3]], vertices[model.Indices[i * 3 + 1]], model.Color);
-            //DrawLine(vertices[model.Indices[i * 3]], vertices[model.Indices[i * 3 + 2]], model.Color);
-            //DrawLine(vertices[model.Indices[i * 3 + 2]], vertices[model.Indices[i * 3 + 1]], model.Color);
+            TimeTest.Run(() =>
+                Rasterize(vectorsPtr, verticescount)
+            , "Rasterize");
 
-            Shading(vectors, Indices, fragInPara, shader);
+            TimeTest.Run(() =>
+            {
+                Shading(v2fsPtr, shader);
+            }, "Shading");
 
             Marshal.FreeHGlobal(v2fsAllocPtr);
             Marshal.FreeHGlobal(vectorsAllocPtr);
@@ -191,7 +226,7 @@ public unsafe partial class MKEngine
     {
         Reset();
 
-        foreach (ModelBase model in models)
+        foreach (Model model in models)
             RenderModel(model);
 
         return new ReadOnlySpan<byte>(pixelsBuffer);
@@ -274,7 +309,7 @@ public unsafe partial class MKEngine
         return this;
     }
 
-    public MKEngine AddModel(ModelBase model)
+    public MKEngine AddModel(Model model)
     {
         models.Add(model);
         return this;

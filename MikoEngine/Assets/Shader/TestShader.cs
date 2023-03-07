@@ -6,7 +6,6 @@ struct a2v
 {
     public MKVector3 Position;
     public MKVector3 Normal;
-    public MKVector2 UV;
 }
 
 struct v2f
@@ -29,6 +28,7 @@ class TestShader : Shader<a2v,v2f>
 
     public override MKVector4 Frag(ref v2f input)
     {
+        //return new MKVector4(255f, 0f, 0f, 1f);
         float Distance = (input.FragPosition - uni.light.Position).Distance();
         float DistanceSquare = MKMath.Max(Distance * Distance, 1f);
         float Intensity = uni.light.Intensity / DistanceSquare;

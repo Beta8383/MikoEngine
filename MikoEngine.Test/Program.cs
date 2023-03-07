@@ -19,7 +19,7 @@ Camera camera = new()
     Mode = ProjectionMode.Perspective
 };
 
-ModelBase model = new Cube();
+Model model = new Cube();
 
 MKVector4 lightPosition = new(0f, 0.3f, 2f, 1f);
 Light light = new()
@@ -42,7 +42,7 @@ watch.Stop();
 Console.WriteLine("Test Used Time:" + watch.ElapsedMilliseconds);
 
 using Image<Rgb24> image = Image.LoadPixelData<Rgb24>(frame, width, height);
-image.SaveAsGif(@"D:\a.png");
+image.SaveAsPng(@"D:\a.png");
 
 MKMatrix4x4 rotate = new(MathF.Cos(0.017453f * 6), 0, -MathF.Sin(0.017453f * 6), 0,
                              0, 1, 0, 0,

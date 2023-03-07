@@ -2,24 +2,18 @@ namespace MikoEngine.Assets;
 
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using MikoEngine.Components;
 
 public abstract class Shader<a2v, v2f> : IShader where a2v : unmanaged where v2f : unmanaged
 {
     public Uniform uni
     {
         get;
-        internal set;
+        set;
     }
 
-    public int a2vSize
-    {
-        get => Marshal.SizeOf<a2v>();
-    }
-
-    public int v2fSize
-    {
-        get => Marshal.SizeOf<v2f>();
-    }
+    public int a2vLength => Marshal.SizeOf<a2v>() / sizeof(float);
+    public int v2fLength => Marshal.SizeOf<v2f>() / sizeof(float);
 
     public MKVector4 WorldToScreenPos(MKVector3 p) =>
         uni.projectionTransform * uni.cameraTransform * uni.modelTransform * new MKVector4(p, 1f);
