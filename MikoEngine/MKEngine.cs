@@ -1,11 +1,7 @@
 ﻿#define TimeTest
 namespace MikoEngine;
 
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using MikoEngine.Assets;
-using MikoEngine.Components;
 using static MikoEngine.MKMath;
 
 public unsafe partial class MKEngine
@@ -22,7 +18,7 @@ public unsafe partial class MKEngine
     private MKVector4 background;
 
     List<Model> models = new();
-    Light light;
+    List<Light> lights = new();
     Camera camera;
 
     MKMatrix4x4 viewportTransform = MKMatrix4x4.Identity,
@@ -51,9 +47,9 @@ public unsafe partial class MKEngine
     private void SetPixel(MKVector4 color, int bufferIndex)
     {
         int index = bufferIndex * BytesPerPixel;
-        pixelsBuffer[index] = (byte)Limit(color.X, 0f, 255f);
-        pixelsBuffer[index + 1] = (byte)Limit(color.Y, 0f, 255f);
-        pixelsBuffer[index + 2] = (byte)Limit(color.Z, 0f, 255f);
+        pixelsBuffer[index] = (byte)Limit(color.X * 255f, 0f, 255f);
+        pixelsBuffer[index + 1] = (byte)Limit(color.Y * 255f, 0f, 255f);
+        pixelsBuffer[index + 2] = (byte)Limit(color.Z * 255f, 0f, 255f);
     }
 
     private void Rasterize(MKVector4* vectors, int count)
@@ -168,18 +164,16 @@ public unsafe partial class MKEngine
 
     private void RenderModel(Model model)
     {
-        IShader shader = new TestShader();
+        IShader shader = model.Shader;
+        shader.modelTransform = model.Transform;
+        shader.projectionTransform = projectionTransform;
+        shader.cameraTransform = cameraTransform;
+        shader.light0 = lights[0];
+        shader.light1 = lights[1];
+        shader.camera = camera;
+
         fixed (float* modeldata = model.Data)
         {
-            shader.uni = new()
-            {
-                modelTransform = model.Transform,
-                projectionTransform = projectionTransform,
-                cameraTransform = cameraTransform,
-                light = light,
-                camera = camera
-            };
-
             float* a2vs = modeldata;
 
             int a2vLength = shader.a2vLength;
@@ -307,9 +301,9 @@ public unsafe partial class MKEngine
         return this;
     }
 
-    public MKEngine SetLight(Light light)
+    public MKEngine AddLight(Light light)
     {
-        this.light = light;
+        lights.Add(light);
         return this;
     }
 

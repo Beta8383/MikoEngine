@@ -1,4 +1,4 @@
-﻿namespace MikoEngine.Components;
+﻿namespace MikoEngine;
 
 public enum ProjectionMode
 {
