@@ -12,14 +12,12 @@ struct v2f
 {
     public MKVector3 FragPosition;
     public MKVector3 Normal;
-    public float YLerp;
 }
 
 class TestShader : Shader<a2v,v2f>
 {
     public override MKVector4 Vert(ref a2v input, ref v2f output)
     {
-        output.YLerp = input.Position.Y + 0.5f;
         MKVector4 FragPosition = uni.modelTransform * (new MKVector4(input.Position, 1f));
         output.FragPosition = new(FragPosition.X, FragPosition.Y, FragPosition.Z);
         output.Normal = input.Normal;
@@ -28,25 +26,21 @@ class TestShader : Shader<a2v,v2f>
 
     public override MKVector4 Frag(ref v2f input)
     {
-        //return new MKVector4(255f, 0f, 0f, 1f);
         float Distance = (input.FragPosition - uni.light.Position).Distance();
         float DistanceSquare = MKMath.Max(Distance * Distance, 1f);
         float Intensity = uni.light.Intensity / DistanceSquare;
-
         MKVector3 LightDirection = (uni.light.Position - input.FragPosition).Normalize();
+        MKVector3 CameraDirection = (uni.camera.Position - input.FragPosition).Normalize();
+
         //lambert
         //MKVector3 diffuse = MKMath.Max(LightDirection * Normal, 0f) * Intensity * light.Color;
         //half-lambert
         MKVector3 diffuse = (MKMath.Max(LightDirection * input.Normal, 0f) * 0.5f + 0.5f) * Intensity * uni.light.Color;
 
-        MKVector3 CameraDirection = (uni.camera.Position - input.FragPosition).Normalize();
         MKVector3 HalfwayDirection = (CameraDirection + LightDirection).Normalize();
         MKVector3 highlight = MathF.Pow(MKMath.Max(HalfwayDirection * input.Normal, 0f), 64) * Intensity * uni.light.Color;
 
         MKVector3 environment = new(50f, 0f, 0f);
-
-        float rReflect = input.YLerp * 1f;
-        float GReflect = (1f - input.YLerp) * 1f;
 
         return new MKVector4(MKVector3.Lerp(diffuse + environment, new MKVector3(1f, 0f, 0f)) + highlight * 0.8f, 1f);
         //color = new float4(highlight, 1f);

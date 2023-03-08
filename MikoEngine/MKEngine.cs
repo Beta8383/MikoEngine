@@ -2,6 +2,7 @@
 namespace MikoEngine;
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using MikoEngine.Assets;
 using MikoEngine.Components;
@@ -119,16 +120,15 @@ public unsafe partial class MKEngine
     {
         float* v2fs = _v2fs;
 
-        float* v2f = stackalloc float[shader.v2fLength];
-
         const int pixelsInGroup = 50000;
         int pixels = width * height;
         int groupCount = (int)Math.Ceiling(pixels / (float)pixelsInGroup);
-        //100ms
+
         Parallel.For(0, groupCount, groupIndex =>
         {
             int startIndex = groupIndex * pixelsInGroup;
             int endIndex = Min((groupIndex + 1) * pixelsInGroup, pixels);
+            float* v2f = stackalloc float[shader.v2fLength];
             for (int bufferIndex = startIndex; bufferIndex < endIndex; bufferIndex++)
             {
                 int vectorIndex = coveredIndexBuffer[bufferIndex];
@@ -146,8 +146,9 @@ public unsafe partial class MKEngine
                 }
             }
         });
-        //230ms
-        /*for (int bufferIndex = 0; bufferIndex < pixels; bufferIndex++)
+
+        /*float* v2f = stackalloc float[shader.v2fLength];
+        for (int bufferIndex = 0; bufferIndex < pixels; bufferIndex++)
         {
             int vectorIndex = coveredIndexBuffer[bufferIndex];
             if (vectorIndex != -1)
@@ -185,11 +186,14 @@ public unsafe partial class MKEngine
             int verticescount = model.Data.Length / a2vLength;
 
             int v2fLenght = shader.v2fLength;
-            nint v2fsAllocPtr = Marshal.AllocHGlobal(shader.v2fLength * verticescount * sizeof(float));
-            float* v2fsPtr = (float*)v2fsAllocPtr;
+            float* v2fsPtr = (float*)Marshal.AllocHGlobal(shader.v2fLength * verticescount * sizeof(float));
 
-            nint vectorsAllocPtr = Marshal.AllocHGlobal(verticescount * sizeof(MKVector4));
-            MKVector4* vectorsPtr = (MKVector4*)vectorsAllocPtr;
+            MKVector4* vectorsPtr = (MKVector4*)Marshal.AllocHGlobal(verticescount * sizeof(MKVector4));
+
+#if DEBUG
+            Span<float> v2fsSpan = new(v2fsPtr, shader.v2fLength * verticescount);
+            Span<float> vectorsSpan = new(vectorsPtr, verticescount);
+#endif
 
             TimeTest.Run(() =>
             {
@@ -217,8 +221,8 @@ public unsafe partial class MKEngine
                 Shading(v2fsPtr, shader);
             }, "Shading");
 
-            Marshal.FreeHGlobal(v2fsAllocPtr);
-            Marshal.FreeHGlobal(vectorsAllocPtr);
+            Marshal.FreeHGlobal((nint)v2fsPtr);
+            Marshal.FreeHGlobal((nint)vectorsPtr);
         }
     }
 

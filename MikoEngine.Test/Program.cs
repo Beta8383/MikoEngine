@@ -9,7 +9,7 @@ const int width = 900;
 
 Camera camera = new()
 {
-    Position = new(0f, 0f, 2f),
+    Position = new(2f, 2f, 2f),
     Up = MKVector3.UnitY,
     Direction = MKVector3.Zero,
     Width = 1,
@@ -19,14 +19,16 @@ Camera camera = new()
     Mode = ProjectionMode.Perspective
 };
 
-Model model = new Cube();
+Model model = new Sphere();
+model.Transform = MKMatrix4x4.Identity * 1.5f;
+model.Transform[4, 4] = 1;
 
-MKVector4 lightPosition = new(0f, 0.3f, 2f, 1f);
+MKVector4 lightPosition = new(3f, 3f, 3f, 3f);
 Light light = new()
 {
     Position = new(lightPosition.X, lightPosition.Y, lightPosition.Z),
     Color = new(255f, 255f, 255f),
-    Intensity = 1f
+    Intensity = 10f
 };
 
 
@@ -35,11 +37,7 @@ engine.SetCamera(camera)
       .SetLight(light)
       .AddModel(model);
 
-Stopwatch watch = new();
-watch.Start();
 var frame = engine.GetFrame();
-watch.Stop();
-Console.WriteLine("Test Used Time:" + watch.ElapsedMilliseconds);
 
 using Image<Rgb24> image = Image.LoadPixelData<Rgb24>(frame, width, height);
 image.SaveAsPng(@"D:\a.png");
