@@ -17,7 +17,9 @@ public struct MKMatrix4x4 : IEquatable<MKMatrix4x4>
     public float M31, M32, M33, M34;
     public float M41, M42, M43, M44;
 
-    public MKMatrix4x4() { }
+    public MKMatrix4x4() =>
+        M11 = M22 = M33 = M44 = 1f;
+        
     public MKMatrix4x4(float m11, float m12, float m13, float m14,
                        float m21, float m22, float m23, float m24,
                        float m31, float m32, float m33, float m34,
@@ -140,4 +142,49 @@ public struct MKMatrix4x4 : IEquatable<MKMatrix4x4>
         this[2, 1] == other[2, 1] && this[2, 2] == other[2, 2] && this[2, 3] == other[2, 3] && this[2, 4] == other[2, 4] &&
         this[3, 1] == other[3, 1] && this[3, 2] == other[3, 2] && this[3, 3] == other[3, 3] && this[3, 4] == other[3, 4] &&
         this[4, 1] == other[4, 1] && this[4, 2] == other[4, 2] && this[4, 3] == other[4, 3] && this[4, 4] == other[4, 4];
+
+    public static MKMatrix4x4 CreateCameraTransform(MKVector3 position, MKVector3 direction, MKVector3 up)
+    {
+        //cameraTransform = Matrix4x4.CreateLookAt(camera.Position, camera.Direction, camera.Up);
+        MKVector3 xaxis, yaxis, zaxis;
+
+        zaxis = -(direction - position);
+        zaxis = zaxis.Normalize();
+
+        xaxis = up ^ zaxis;
+        xaxis = xaxis.Normalize();
+
+        yaxis = zaxis ^ xaxis;
+        yaxis = yaxis.Normalize();
+
+        var translate = MKMatrix4x4.CreateTranslation(-position.X, -position.Y, -position.Z);
+
+        var rotate = new MKMatrix4x4(
+            xaxis.X, xaxis.Y, xaxis.Z, 0f,
+            yaxis.X, yaxis.Y, yaxis.Z, 0f,
+            zaxis.X, zaxis.Y, zaxis.Z, 0f,
+            0f, 0f, 0f, 1f);
+
+        return rotate * translate;
+    }
+
+    public static MKMatrix4x4 CreateOrthographicTransform(float width, float height, float zNearPlane, float zFarPlane) =>
+        new MKMatrix4x4(
+            2f / width, 0f, 0f, 0f,
+            0f, 2f / height, 0f, 0f,
+            0f, 0f, 2f / (zFarPlane - zNearPlane), (zFarPlane + zNearPlane) / (zFarPlane - zNearPlane),
+            0f, 0f, 0f, 1f
+        );
+
+    public static MKMatrix4x4 CreatePerspectiveTransform(float width, float height, float zNearPlane, float zFarPlane)
+    {
+        MKMatrix4x4 scale = new(
+            -zNearPlane, 0f, 0f, 0f,
+            0f, -zNearPlane, 0f, 0f,
+            0f, 0f, -zNearPlane - zFarPlane, -zNearPlane * zFarPlane,
+            0f, 0f, 1f, 0f
+        );
+
+        return CreateOrthographicTransform(width, height, zNearPlane, zFarPlane) * scale;
+    }
 }

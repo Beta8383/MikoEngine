@@ -21,9 +21,7 @@ public unsafe partial class MKEngine
     List<Light> lights = new();
     Camera camera;
 
-    MKMatrix4x4 viewportTransform = MKMatrix4x4.Identity,
-                cameraTransform = MKMatrix4x4.Identity,
-                projectionTransform = MKMatrix4x4.Identity;
+    MKMatrix4x4 viewportTransform, cameraTransform, projectionTransform;
 
     public MKEngine(int height, int width)
     {
@@ -47,27 +45,18 @@ public unsafe partial class MKEngine
     private void SetPixel(MKVector4 color, int bufferIndex)
     {
         int index = bufferIndex * BytesPerPixel;
-        pixelsBuffer[index] = (byte)Limit(color.X * 255f, 0f, 255f);
-        pixelsBuffer[index + 1] = (byte)Limit(color.Y * 255f, 0f, 255f);
-        pixelsBuffer[index + 2] = (byte)Limit(color.Z * 255f, 0f, 255f);
+        pixelsBuffer[index] = (byte)Math.Clamp(color.X * 255f, 0f, 255f);
+        pixelsBuffer[index + 1] = (byte)Math.Clamp(color.Y * 255f, 0f, 255f);
+        pixelsBuffer[index + 2] = (byte)Math.Clamp(color.Z * 255f, 0f, 255f);
     }
 
     private void Rasterize(MKVector4* vectors, int count)
     {
-#if index
-        for (int triangleIndex = 0; triangleIndex < vectorsIndices.Length; triangleIndex += 3)
+        Parallel.For(0, count / 3, index =>
         {
-            
-            ref readonly var vec1 = ref vectors[vectorsIndices[triangleIndex]];
-            ref readonly var vec2 = ref vectors[vectorsIndices[triangleIndex + 1]];
-            ref readonly var vec3 = ref vectors[vectorsIndices[triangleIndex + 2]];
-#else
-        for (int index = 0; index < count; index += 3)
-        {
-            ref readonly var vec1 = ref vectors[index];
-            ref readonly var vec2 = ref vectors[index + 1];
-            ref readonly var vec3 = ref vectors[index + 2];
-#endif
+            ref readonly var vec1 = ref vectors[index * 3];
+            ref readonly var vec2 = ref vectors[index * 3+ 1];
+            ref readonly var vec3 = ref vectors[index * 3+ 2];
 
             int minx = (int)Min(vec1.X, vec2.X, vec3.X);
             int miny = (int)Min(vec1.Y, vec2.Y, vec3.Y);
@@ -96,11 +85,8 @@ public unsafe partial class MKEngine
                         if (depth < 0 && depth > zBuffer[y * width + x])
                         {
                             zBuffer[y * width + x] = depth;
-#if index
-                            coveredIndexBuffer[y * width + x] = triangleIndex;
-#else
-                            coveredIndexBuffer[y * width + x] = index / 3;
-#endif
+
+                            coveredIndexBuffer[y * width + x] = index;
                             barycentricBuffer[y * width + x].i = i;
                             barycentricBuffer[y * width + x].j = j;
                             barycentricBuffer[y * width + x].k = k;
@@ -109,43 +95,17 @@ public unsafe partial class MKEngine
                         }
                     }
                 }
-        }
+        });
     }
 
     private void Shading(float* _v2fs, IShader shader)
     {
         float* v2fs = _v2fs;
-
-        const int pixelsInGroup = 50000;
         int pixels = width * height;
-        int groupCount = (int)Math.Ceiling(pixels / (float)pixelsInGroup);
 
-        Parallel.For(0, groupCount, groupIndex =>
+        Parallel.For(0, pixels, bufferIndex =>
         {
-            int startIndex = groupIndex * pixelsInGroup;
-            int endIndex = Min((groupIndex + 1) * pixelsInGroup, pixels);
             float* v2f = stackalloc float[shader.v2fLength];
-            for (int bufferIndex = startIndex; bufferIndex < endIndex; bufferIndex++)
-            {
-                int vectorIndex = coveredIndexBuffer[bufferIndex];
-                if (vectorIndex != -1)
-                {
-                    int v2fsIndex1 = vectorIndex * 3 * shader.v2fLength;
-                    int v2fsIndex2 = v2fsIndex1 + shader.v2fLength;
-                    int v2fsIndex3 = v2fsIndex2 + shader.v2fLength;
-
-                    for (int index = 0; index < shader.v2fLength; index++)
-                        v2f[index] = v2fs[v2fsIndex1 + index] * barycentricBuffer[bufferIndex].i +
-                                     v2fs[v2fsIndex2 + index] * barycentricBuffer[bufferIndex].j +
-                                     v2fs[v2fsIndex3 + index] * barycentricBuffer[bufferIndex].k;
-                    SetPixel(shader.Frag(new(v2f, shader.v2fLength)), bufferIndex);
-                }
-            }
-        });
-
-        /*float* v2f = stackalloc float[shader.v2fLength];
-        for (int bufferIndex = 0; bufferIndex < pixels; bufferIndex++)
-        {
             int vectorIndex = coveredIndexBuffer[bufferIndex];
             if (vectorIndex != -1)
             {
@@ -159,7 +119,7 @@ public unsafe partial class MKEngine
                                  v2fs[v2fsIndex3 + index] * barycentricBuffer[bufferIndex].k;
                 SetPixel(shader.Frag(new(v2f, shader.v2fLength)), bufferIndex);
             }
-        }*/
+        });
     }
 
     private void RenderModel(Model model)
@@ -169,7 +129,7 @@ public unsafe partial class MKEngine
         shader.projectionTransform = projectionTransform;
         shader.cameraTransform = cameraTransform;
         shader.light0 = lights[0];
-        shader.light1 = lights[1];
+        //shader.light1 = lights[1];
         shader.camera = camera;
 
         fixed (float* modeldata = model.Data)
@@ -241,62 +201,18 @@ public unsafe partial class MKEngine
         Array.Fill<float>(zBuffer, float.NegativeInfinity);
     }
 
-    private static MKMatrix4x4 CreateCameraTransform(MKVector3 position, MKVector3 direction, MKVector3 up)
-    {
-        //cameraTransform = Matrix4x4.CreateLookAt(camera.Position, camera.Direction, camera.Up);
-        MKVector3 xaxis, yaxis, zaxis;
-
-        zaxis = -(direction - position);
-        zaxis = zaxis.Normalize();
-
-        xaxis = up ^ zaxis;
-        xaxis = xaxis.Normalize();
-
-        yaxis = zaxis ^ xaxis;
-        yaxis = yaxis.Normalize();
-
-        var translate = MKMatrix4x4.CreateTranslation(-position.X, -position.Y, -position.Z);
-
-        var rotate = new MKMatrix4x4(
-            xaxis.X, xaxis.Y, xaxis.Z, 0f,
-            yaxis.X, yaxis.Y, yaxis.Z, 0f,
-            zaxis.X, zaxis.Y, zaxis.Z, 0f,
-            0f, 0f, 0f, 1f);
-
-        return rotate * translate;
-    }
-
-    private static MKMatrix4x4 CreateOrthographicTransform(float width, float height, float zNearPlane, float zFarPlane) =>
-        new MKMatrix4x4(
-            2f / width, 0f, 0f, 0f,
-            0f, 2f / height, 0f, 0f,
-            0f, 0f, 2f / (zFarPlane - zNearPlane), (zFarPlane + zNearPlane) / (zFarPlane - zNearPlane),
-            0f, 0f, 0f, 1f
-        );
-
-    private static MKMatrix4x4 CreatePerspectiveTransform(float width, float height, float zNearPlane, float zFarPlane)
-    {
-        MKMatrix4x4 scale = new(
-            -zNearPlane, 0f, 0f, 0f,
-            0f, -zNearPlane, 0f, 0f,
-            0f, 0f, -zNearPlane - zFarPlane, -zNearPlane * zFarPlane,
-            0f, 0f, 1f, 0f
-        );
-
-        return CreateOrthographicTransform(width, height, zNearPlane, zFarPlane) * scale;
-    }
-
+    
     public MKEngine SetCamera(Camera camera)
     {
         this.camera = camera;
         if (camera.zNearPlane <= 0 || camera.zFarPlane <= 0 || camera.zNearPlane >= camera.zFarPlane)
             throw new ArgumentException();
 
-        cameraTransform = CreateCameraTransform(camera.Position, camera.Direction, camera.Up);
+        cameraTransform = MKMatrix4x4.CreateCameraTransform(camera.Position, camera.Direction, camera.Up);
 
         if (camera.Mode == ProjectionMode.Orthographic)
-            projectionTransform = CreateOrthographicTransform(camera.Width, camera.Height, camera.zNearPlane, camera.zFarPlane);
-        else projectionTransform = CreatePerspectiveTransform(camera.Width, camera.Height, camera.zNearPlane, camera.zFarPlane);
+            projectionTransform = MKMatrix4x4.CreateOrthographicTransform(camera.Width, camera.Height, camera.zNearPlane, camera.zFarPlane);
+        else projectionTransform = MKMatrix4x4.CreatePerspectiveTransform(camera.Width, camera.Height, camera.zNearPlane, camera.zFarPlane);
 
         return this;
     }

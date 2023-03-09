@@ -18,21 +18,20 @@ public struct v2f
 
 public class LitShader : Shader<a2v, v2f>
 {
-    public MKVector3 Color;
-    public Texture? texture;
+    public Texture Texture;
 
     public float smoothness;
     public float Smoothness
     {
         get => smoothness;
-        set => smoothness = Limit(value, 0f, 1f);
+        set => smoothness = Math.Clamp(value, 0f, 1f);
     }
 
     public float metallic;
     public float Metallic
     {
         get => metallic;
-        set => metallic = Limit(value, 0f, 1f);
+        set => metallic = Math.Clamp(value, 0f, 1f);
     }
 
     public override MKVector4 Vert(ref a2v input, ref v2f output)
@@ -57,9 +56,10 @@ public class LitShader : Shader<a2v, v2f>
 
         if (light.Type is LightType.Point)
         {
-            float Distance = (position - light.Position).Distance();
+            MKVector3 position2light = light.Position - position;
+            float Distance = position2light.Distance();
             float DistanceSquare = Max(Distance * Distance, 1f);
-            LightDirection = (light.Position - position).Normalize();
+            LightDirection = position2light.Normalize();
             Intensity = light.Intensity / DistanceSquare;
         }
         else
@@ -81,7 +81,7 @@ public class LitShader : Shader<a2v, v2f>
 
     public override MKVector4 Frag(ref v2f input)
     {
-        MKVector3 texColor = texture?.GetColor(input.UV) ?? Color;
+        MKVector3 texColor = TexelColor(ref Texture, +input.UV, 1);
         return HalfLambert(light0, input.Position, input.Normal, texColor) +
                HalfLambert(light1, input.Position, input.Normal, texColor) +
                HalfLambert(light2, input.Position, input.Normal, texColor) +

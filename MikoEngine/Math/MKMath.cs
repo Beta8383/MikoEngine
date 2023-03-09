@@ -5,15 +5,9 @@ namespace MikoEngine;
 public static class MKMath
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T Min<T>(T x, T y) where T : IComparable<T> => x.CompareTo(y) > 0 ? y : x;
+    public static T Min<T>(params T[] source) where T : IComparable<T> => source.Min();
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T Max<T>(T x, T y) where T : IComparable<T> => x.CompareTo(y) > 0 ? x : y;
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T Min<T>(T x, T y, T z) where T : IComparable<T> => Min(Min(x, y), z);
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T Max<T>(T x, T y, T z) where T : IComparable<T> => Max(Max(x, y), z);
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T Limit<T>(T x, T min, T max) where T : IComparable<T> => Min(Max(min, x), max);
+    public static T Max<T>(params T[] source) where T : IComparable<T> => source.Max();
 
     internal static bool ComputeBarycentric(in MKVector4 p1, in MKVector4 p2, in MKVector4 p3, float x, float y, out float i, out float j, out float k)
     {

@@ -1,15 +1,15 @@
-﻿#define MacOS
+﻿//#define MacOS
 
 using MikoEngine;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-const int height = 1600;
-const int width = 1600;
+const int height = 5000;
+const int width = 5000;
 
 Camera camera = new()
 {
-    Position = new(2f, 2f, 3f),
+    Position = new(0f, 0f, 3f),
     Up = MKVector3.UnitY,
     Direction = MKVector3.Zero,
     Width = 1,
@@ -24,18 +24,15 @@ using Image<Rgb24> textureImage = Image.Load<Rgb24>(@"/Users/beta/Desktop/textur
 #else
 using Image<Rgb24> textureImage = Image.Load<Rgb24>(@"D:\texture.jpg");
 #endif
-Texture texture = new(textureImage.Width, textureImage.Height, 3);
-textureImage.CopyPixelDataTo(texture.GetPixelsData());
 
 Model model = new Cube();
 model.Transform = MKMatrix4x4.Identity * 2f;
 model.Transform[4, 4] = 1;
 model.Shader = new LitShader()
 {
-    Color = new(1f, 0.01f, 0.01f),
     Smoothness = 0.8f,
     Metallic = 1f,
-    texture = texture
+    Texture = TextureCreator.Create(@"D:\texture.jpg")
 };
 
 MKVector4 lightPosition = new(0f, 0f, 3f, 1f);
@@ -51,14 +48,14 @@ Light light1 = new()
 {
     Position = new(lightPosition.X, lightPosition.Y, lightPosition.Z),
     Color = new(1f, 1f, 1f),
-    Intensity = 0.5f,
+    Intensity = 1f,
     Type = LightType.Area
 };
 
 
 MKEngine engine = new(height, width);
 engine.SetCamera(camera)
-      .AddLight(light0)
+      //.AddLight(light0)
       .AddLight(light1)
       .AddModel(model);
 
