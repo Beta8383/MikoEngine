@@ -1,4 +1,6 @@
-﻿using MikoEngine;
+﻿#define MacOS
+
+using MikoEngine;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -17,7 +19,11 @@ Camera camera = new()
     Mode = ProjectionMode.Perspective
 };
 
+#if MacOS
+using Image<Rgb24> textureImage = Image.Load<Rgb24>(@"/Users/beta/Desktop/texture.jpg");
+#else
 using Image<Rgb24> textureImage = Image.Load<Rgb24>(@"D:\texture.jpg");
+#endif
 Texture texture = new(textureImage.Width, textureImage.Height, 3);
 textureImage.CopyPixelDataTo(texture.GetPixelsData());
 
@@ -59,8 +65,11 @@ engine.SetCamera(camera)
 var frame = engine.GetFrame();
 
 using Image<Rgb24> image = Image.LoadPixelData<Rgb24>(frame, width, height);
+#if MacOS
+image.SaveAsPng(@"/Users/beta/Desktop/a.png");
+#else
 image.SaveAsPng(@"D:\a.png");
-
+#endif
 MKMatrix4x4 rotate = new(MathF.Cos(0.017453f * 6), 0, -MathF.Sin(0.017453f * 6), 0,
                              0, 1, 0, 0,
                              MathF.Sin(0.017453f * 6), 0, MathF.Cos(0.017453f * 6), 0,
