@@ -10,10 +10,10 @@ public unsafe partial class MKEngine
 
     private readonly int width, height;
 
-    private byte[] pixelsBuffer;
+    private float[] pixelsBuffer;
     private float[] zBuffer;
     private int[] coveredIndexBuffer;
-    private (float i, float j, float k)[] barycentricBuffer;
+    private MKVector3[] barycentricBuffer;
 
     private MKVector4 background;
 
@@ -38,16 +38,16 @@ public unsafe partial class MKEngine
 
         zBuffer = new float[height * width];
         coveredIndexBuffer = new int[height * width];
-        barycentricBuffer = new (float i, float j, float k)[height * width];
-        pixelsBuffer = new byte[width * height * BytesPerPixel];
+        barycentricBuffer = new MKVector3[height * width];
+        pixelsBuffer = new float[width * height * BytesPerPixel];
     }
 
     private void SetPixel(MKVector4 color, int bufferIndex)
     {
         int index = bufferIndex * BytesPerPixel;
-        pixelsBuffer[index] = (byte)Math.Clamp(color.X * 255f, 0f, 255f);
-        pixelsBuffer[index + 1] = (byte)Math.Clamp(color.Y * 255f, 0f, 255f);
-        pixelsBuffer[index + 2] = (byte)Math.Clamp(color.Z * 255f, 0f, 255f);
+        pixelsBuffer[index] = Math.Clamp(color.X, 0f, 1f);
+        pixelsBuffer[index + 1] = Math.Clamp(color.Y, 0f, 1f);
+        pixelsBuffer[index + 2] = Math.Clamp(color.Z, 0f, 1f);
     }
 
     private void Rasterize(MKVector4* vectors, int count)
@@ -87,9 +87,9 @@ public unsafe partial class MKEngine
                             zBuffer[y * width + x] = depth;
 
                             coveredIndexBuffer[y * width + x] = index;
-                            barycentricBuffer[y * width + x].i = i;
-                            barycentricBuffer[y * width + x].j = j;
-                            barycentricBuffer[y * width + x].k = k;
+                            barycentricBuffer[y * width + x].X = i;
+                            barycentricBuffer[y * width + x].Y = j;
+                            barycentricBuffer[y * width + x].Z = k;
                             //灰度值
                             //SetPixel(new MKVector4(255) * (depth + 1) * 0.5f, x, y);
                         }
@@ -114,9 +114,9 @@ public unsafe partial class MKEngine
                 int v2fsIndex3 = v2fsIndex2 + shader.v2fLength;
 
                 for (int index = 0; index < shader.v2fLength; index++)
-                    v2f[index] = v2fs[v2fsIndex1 + index] * barycentricBuffer[bufferIndex].i +
-                                 v2fs[v2fsIndex2 + index] * barycentricBuffer[bufferIndex].j +
-                                 v2fs[v2fsIndex3 + index] * barycentricBuffer[bufferIndex].k;
+                    v2f[index] = v2fs[v2fsIndex1 + index] * barycentricBuffer[bufferIndex].X +
+                                 v2fs[v2fsIndex2 + index] * barycentricBuffer[bufferIndex].Y +
+                                 v2fs[v2fsIndex3 + index] * barycentricBuffer[bufferIndex].Z;
                 SetPixel(shader.Frag(new(v2f, shader.v2fLength)), bufferIndex);
             }
         });
@@ -180,14 +180,14 @@ public unsafe partial class MKEngine
         }
     }
 
-    public ReadOnlySpan<byte> GetFrame()
+    public ReadOnlySpan<float> GetFrame()
     {
         Reset();
 
         foreach (Model model in models)
             RenderModel(model);
 
-        return new ReadOnlySpan<byte>(pixelsBuffer);
+        return new ReadOnlySpan<float>(pixelsBuffer);
     }
 
     public void Clear(MKVector4 color) =>

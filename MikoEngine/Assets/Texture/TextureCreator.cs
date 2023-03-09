@@ -15,14 +15,22 @@ public static class TextureCreator
                 width = image.Width,
                 height = image.Height,
                 bytesPerPixel = 3,
-                data = new byte[image.Width * image.Height * 3],
+                data = new float[image.Width * image.Height * 3],
             };
-            image.CopyPixelDataTo(texture.data);
+            int index = 0;
+            for (int i = 0; i < image.Height; i++)
+                for (int j = 0; j < image.Width; j++)
+                {
+                    Rgb24 color = image[j, i];
+                    texture.data[index++] = color.R / 255f;
+                    texture.data[index++] = color.G / 255f;
+                    texture.data[index++] = color.B / 255f;
+                }
             return texture;
         }
         catch (Exception e)
         {
-            return default;
+            return Create(MKVector3.Zero);
         }
     }
 
@@ -33,11 +41,11 @@ public static class TextureCreator
             width = 1,
             height = 1,
             bytesPerPixel = 3,
-            data = new byte[3],
+            data = new float[3],
         };
-        texture.data[0] = (byte)(Math.Clamp(color.X, 0f, 1f) * 255);
-        texture.data[1] = (byte)(Math.Clamp(color.Y, 0f, 1f) * 255);
-        texture.data[2] = (byte)(Math.Clamp(color.Z, 0f, 1f) * 255);
+        texture.data[0] = Math.Clamp(color.X, 0f, 1f);
+        texture.data[1] = Math.Clamp(color.Y, 0f, 1f);
+        texture.data[2] = Math.Clamp(color.Z, 0f, 1f);
         return texture;
     }
 }

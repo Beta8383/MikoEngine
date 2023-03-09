@@ -2,6 +2,6 @@ namespace MikoEngine;
 
 public struct Texture
 {
-    internal byte[] data;
+    internal float[] data;
     internal int width, height, bytesPerPixel;
 }

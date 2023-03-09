@@ -1,4 +1,4 @@
-﻿//#define MacOS
+﻿#define MacOS
 
 using MikoEngine;
 using SixLabors.ImageSharp;
@@ -32,7 +32,11 @@ model.Shader = new LitShader()
 {
     Smoothness = 0.8f,
     Metallic = 1f,
+#if MacOS
+    Texture = TextureCreator.Create(@"/Users/beta/Desktop/texture.jpg")
+#else
     Texture = TextureCreator.Create(@"D:\texture.jpg")
+#endif
 };
 
 MKVector4 lightPosition = new(0f, 0f, 3f, 1f);
@@ -52,7 +56,6 @@ Light light1 = new()
     Type = LightType.Area
 };
 
-
 MKEngine engine = new(height, width);
 engine.SetCamera(camera)
       //.AddLight(light0)
@@ -60,8 +63,19 @@ engine.SetCamera(camera)
       .AddModel(model);
 
 var frame = engine.GetFrame();
-
-using Image<Rgb24> image = Image.LoadPixelData<Rgb24>(frame, width, height);
+byte[] pixels = new byte[width * height * 3];
+int index = 0;
+for (int i = 0; i < height;i++)
+    for (int j = 0; j < width; j++)
+    {
+        pixels[index] = (byte)(frame[index] * 255);
+        index++;
+        pixels[index] = (byte)(frame[index] * 255);
+        index++;
+        pixels[index] = (byte)(frame[index] * 255);
+        index++;
+    }
+using Image<Rgb24> image = Image.LoadPixelData<Rgb24>(pixels, width, height);
 #if MacOS
 image.SaveAsPng(@"/Users/beta/Desktop/a.png");
 #else
