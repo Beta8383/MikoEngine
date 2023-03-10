@@ -1,6 +1,7 @@
 namespace MikoEngine;
 
 using System.Runtime.CompilerServices;
+using static MikoEngine.MKMath;
 
 public abstract class IShader
 {
@@ -32,7 +33,7 @@ public abstract class IShader
         float u = Math.Clamp(uv.X, 0f, 1f);
         float v = Math.Clamp(uv.Y, 0f, 1f);
         int x = (int)((texture.width - 1) * u);
-        int y = (int)((texture.height - 1) * (1 - v));
+        int y = (int)((texture.height - 1) * v);
         int index = (y * texture.width + x) * texture.bytesPerPixel;
         return new(texture.data[index], texture.data[index + 1], texture.data[index + 2]);
     }
@@ -40,11 +41,11 @@ public abstract class IShader
     protected static MKVector3 TexelColor(ref Texture texture, MKVector2 uv, int i)
     {
         float x = Math.Clamp(uv.X, 0f, 1f) * (texture.width - 1);
-        float y = (1 - Math.Clamp(uv.Y, 0f, 1f)) * (texture.height - 1);
+        float y = Math.Clamp(uv.Y, 0f, 1f) * (texture.height - 1);
         int x0 = (int)Math.Floor(x);
-        int y0 = (int)Math.Ceiling(y);
-        int x1 = (int)Math.Ceiling(x);
-        int y1 = (int)Math.Floor(y);
+        int y0 = (int)Math.Floor(y);
+        int x1 = Min(x0 + 1, texture.width - 1);
+        int y1 = Min(y0 + 1, texture.height - 1);
 
         int pos0_0 = (y0 * texture.width + x0) * texture.bytesPerPixel;
         int pos1_0 = (y0 * texture.width + x1) * texture.bytesPerPixel;
@@ -56,8 +57,8 @@ public abstract class IShader
         MKVector3 color0_1 = new(texture.data[pos0_1], texture.data[pos0_1 + 1], texture.data[pos0_1 + 2]);
         MKVector3 color1_1 = new(texture.data[pos1_1], texture.data[pos1_1 + 1], texture.data[pos1_1 + 2]);
 
-        MKVector3 left = color0_0 + (color0_1 - color0_0) * (y0 - y);
-        MKVector3 right = color1_0 + (color1_1 - color1_0) * (y0 - y);
+        MKVector3 left = color0_0 + (color0_1 - color0_0) * (y - y0);
+        MKVector3 right = color1_0 + (color1_1 - color1_0) * (y - y0);
         return left + (right - left) * (x - x0);
     }
     #endregion

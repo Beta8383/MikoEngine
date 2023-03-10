@@ -1,20 +1,17 @@
 ﻿#define TimeTest
 namespace MikoEngine;
 
-using System.Runtime.InteropServices;
 using static MikoEngine.MKMath;
 
-public unsafe partial class MKEngine
+public partial class MKEngine : IDisposable
 {
-    const int BytesPerPixel = 3;
+    readonly int width, height;
+    readonly int pixels;
 
-    private readonly int width, height;
-
-    private float[] pixelsBuffer;
-    private float[] zBuffer;
-    private int[] coveredIndexBuffer;
+    private AllocSpan<MKVector3> pixelsBuffer;
+    private AllocSpan<float> zBuffer;
+    private AllocSpan<int> coveredIndexBuffer;
     private MKVector3[] barycentricBuffer;
-
     private MKVector4 background;
 
     List<Model> models = new();
@@ -27,6 +24,7 @@ public unsafe partial class MKEngine
     {
         this.width = width;
         this.height = height;
+        pixels = width * height;
 
         //(0,0)在视口中心，y轴上小下大，需要倒转
         viewportTransform = new(
@@ -36,18 +34,32 @@ public unsafe partial class MKEngine
             0, 0, 0, 1
         );
 
-        zBuffer = new float[height * width];
-        coveredIndexBuffer = new int[height * width];
-        barycentricBuffer = new MKVector3[height * width];
-        pixelsBuffer = new float[width * height * BytesPerPixel];
+        zBuffer = new(pixels);
+        coveredIndexBuffer = new(pixels);
+        barycentricBuffer = new MKVector3[pixels];
+        pixelsBuffer = new(pixels);
     }
 
-    private void SetPixel(MKVector4 color, int bufferIndex)
+    ~MKEngine() => Free();
+
+    public void Dispose()
     {
-        int index = bufferIndex * BytesPerPixel;
-        pixelsBuffer[index] = Math.Clamp(color.X, 0f, 1f);
-        pixelsBuffer[index + 1] = Math.Clamp(color.Y, 0f, 1f);
-        pixelsBuffer[index + 2] = Math.Clamp(color.Z, 0f, 1f);
+        Free();
+        GC.SuppressFinalize(this);
+    }
+
+    void Free()
+    {
+        pixelsBuffer.Dispose();
+        zBuffer.Dispose();
+        coveredIndexBuffer.Dispose();
+    }
+
+    private void SetPixel(MKVector4 color, int index)
+    {
+        pixelsBuffer[index].X = Math.Clamp(color.X, 0f, 1f);
+        pixelsBuffer[index].Y = Math.Clamp(color.Y, 0f, 1f);
+        pixelsBuffer[index].Z = Math.Clamp(color.Z, 0f, 1f);
     }
 
     private void Rasterize(AllocSpan<MKVector4> vectors, int count)
@@ -100,24 +112,22 @@ public unsafe partial class MKEngine
 
     private void Shading(AllocSpan<float> v2fs, IShader shader)
     {
-        int pixels = width * height;
-
         Parallel.For(0, pixels, bufferIndex =>
         {
-            float* v2f = stackalloc float[shader.v2fLength];
+            Span<float> v2f = stackalloc float[shader.v2fLength];
             int vectorIndex = coveredIndexBuffer[bufferIndex];
-            if (vectorIndex != -1)
-            {
-                int v2fsIndex1 = vectorIndex * 3 * shader.v2fLength;
-                int v2fsIndex2 = v2fsIndex1 + shader.v2fLength;
-                int v2fsIndex3 = v2fsIndex2 + shader.v2fLength;
 
-                for (int index = 0; index < shader.v2fLength; index++)
-                    v2f[index] = v2fs[v2fsIndex1 + index] * barycentricBuffer[bufferIndex].X +
-                                 v2fs[v2fsIndex2 + index] * barycentricBuffer[bufferIndex].Y +
-                                 v2fs[v2fsIndex3 + index] * barycentricBuffer[bufferIndex].Z;
-                SetPixel(shader.Frag(new(v2f, shader.v2fLength)), bufferIndex);
-            }
+            if (vectorIndex == -1) return;
+
+            int v2fsIndex1 = vectorIndex * 3 * shader.v2fLength;
+            int v2fsIndex2 = v2fsIndex1 + shader.v2fLength;
+            int v2fsIndex3 = v2fsIndex2 + shader.v2fLength;
+
+            for (int index = 0; index < shader.v2fLength; index++)
+                v2f[index] = v2fs[v2fsIndex1 + index] * barycentricBuffer[bufferIndex].X +
+                             v2fs[v2fsIndex2 + index] * barycentricBuffer[bufferIndex].Y +
+                             v2fs[v2fsIndex3 + index] * barycentricBuffer[bufferIndex].Z;
+            SetPixel(shader.Frag(v2f), bufferIndex);
         });
     }
 
@@ -131,16 +141,16 @@ public unsafe partial class MKEngine
         shader.projectionTransform = projectionTransform;
         shader.cameraTransform = cameraTransform;
         shader.light0 = lights[0];
-        //shader.light1 = lights[1];
+        shader.light1 = lights[1];
         shader.camera = camera;
 
         int a2vLength = shader.a2vLength;
         int verticescount = model.Data.Length / a2vLength;
 
         int v2fLength = shader.v2fLength;
-        AllocSpan<float> v2fs = new(shader.v2fLength * verticescount);
+        using AllocSpan<float> v2fs = new(shader.v2fLength * verticescount);
 
-        AllocSpan<MKVector4> vectors = new(verticescount);
+        using AllocSpan<MKVector4> vectors = new(verticescount);
 
         TimeTest.Run(() =>
         {
@@ -158,7 +168,8 @@ public unsafe partial class MKEngine
             }
         }, "VertexShader");
 
-        Array.Fill<int>(coveredIndexBuffer, -1);
+        for (int i = 0; i < coveredIndexBuffer.Length;i++)
+            coveredIndexBuffer[i] = -1;
         TimeTest.Run(() =>
             Rasterize(vectors, verticescount)
         , "Rasterize");
@@ -167,19 +178,16 @@ public unsafe partial class MKEngine
         {
             Shading(v2fs, shader);
         }, "Shading");
-
-        v2fs.Free();
-        vectors.Free();
     }
 
-    public ReadOnlySpan<float> GetFrame()
+    public ReadOnlySpan<MKVector3> GetFrame()
     {
         Reset();
 
         foreach (Model model in models)
             RenderModel(model);
 
-        return new ReadOnlySpan<float>(pixelsBuffer);
+        return pixelsBuffer;
     }
 
     public void Clear(MKVector4 color) =>
@@ -187,10 +195,11 @@ public unsafe partial class MKEngine
 
     private void Reset()
     {
-        for (int bufferIndex = 0; bufferIndex < width * height; bufferIndex++)
+        for (int bufferIndex = 0; bufferIndex < pixels; bufferIndex++)
             SetPixel(background, bufferIndex);
 
-        Array.Fill<float>(zBuffer, float.NegativeInfinity);
+        for (int i = 0; i < pixels; i++)
+            zBuffer[i] = float.NegativeInfinity;
     }
 
     public MKEngine SetCamera(Camera camera)

@@ -36,7 +36,7 @@ public class LitShader : Shader<a2v, v2f>
 
     public override MKVector4 Vert(ref a2v input, ref v2f output)
     {
-        MKVector4 FragPosition = modelTransform * (new MKVector4(input.Position, 1f));
+        MKVector4 FragPosition = modelTransform * new MKVector4(input.Position, 1f);
         output.Position = new(FragPosition.X, FragPosition.Y, FragPosition.Z);
         output.Normal = input.Normal;
         output.UV = input.Texcoord;
@@ -50,32 +50,31 @@ public class LitShader : Shader<a2v, v2f>
 
         if (light.Type == LightType.Area)
             return new(MKVector3.Lerp(light.Color * light.Intensity, color) * smoothness, 1f);
-
-        float Intensity = 0f;
+       
         MKVector3 LightDirection;
-
+        float intensity;
         if (light.Type is LightType.Point)
         {
             MKVector3 position2light = light.Position - position;
             float Distance = position2light.Distance();
             float DistanceSquare = Max(Distance * Distance, 1f);
             LightDirection = position2light.Normalize();
-            Intensity = light.Intensity / DistanceSquare;
+            intensity = light.Intensity / DistanceSquare;
         }
         else
         {
             LightDirection = light.Position - light.Direction;
-            Intensity = light.Intensity;
+            intensity = light.Intensity;
         }
-        
+
         MKVector3 CameraDirection = (camera.Position - position).Normalize();
         MKVector3 HalfwayDirection = (CameraDirection + LightDirection).Normalize();
 
         //lambert
         //MKVector3 diffuse = MKMath.Max(LightDirection * normal, 0f) * Intensity * light.Color;
         //half-lambert
-        MKVector3 diffuse = (MKMath.Max(LightDirection * normal, 0f) * 0.5f + 0.5f) * Intensity * light.Color;
-        MKVector3 highlight = MathF.Pow(MKMath.Max(HalfwayDirection * normal, 0f), 64) * Intensity * light.Color;
+        MKVector3 diffuse = (Max(LightDirection * normal, 0f) * 0.5f + 0.5f) * intensity * light.Color;
+        MKVector3 highlight = MathF.Pow(Max(HalfwayDirection * normal, 0f), 64) * intensity * light.Color;
         return new(MKVector3.Lerp(diffuse, color) * smoothness + highlight , 1f);
     }
 

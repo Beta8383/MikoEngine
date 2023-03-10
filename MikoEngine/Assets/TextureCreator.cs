@@ -18,7 +18,7 @@ public static class TextureCreator
                 data = new float[image.Width * image.Height * 3],
             };
             int index = 0;
-            for (int i = 0; i < image.Height; i++)
+            for (int i = image.Height - 1; i >= 0; i--)
                 for (int j = 0; j < image.Width; j++)
                 {
                     Rgb24 color = image[j, i];

@@ -2,21 +2,44 @@ using System.Runtime.InteropServices;
 
 namespace MikoEngine;
 
-unsafe class AllocSpan<T> where T : unmanaged
+unsafe class AllocSpan<T> : IDisposable where T : unmanaged
 {
     T* _reference;
-    int _length;
-    public int Length => _length;
+    public readonly int Length;
 
+    /// <summary>
+    /// 创建非托管内存数组
+    /// 多线程不安全😨，谨慎使用
+    /// </summary>
+    /// <param name="length">数组长度</param>
+    /// <exception cref="ArgumentException"></exception>
+    /// <exception cref="OutOfMemoryException"></exception>
     public AllocSpan(int length)
     {
         if (length <= 0)
             throw new ArgumentException();
-        _length = length;
-        Allocate();
+
+        Length = length;
+        _reference = (T*)Marshal.AllocHGlobal(Length * Marshal.SizeOf<T>());
     }
 
     ~AllocSpan() => Free();
+
+    /// <summary>
+    /// 释放非托管内存
+    /// </summary>
+    public void Dispose()
+    {
+        Free();
+        GC.SuppressFinalize(this);
+    }
+
+    void Free()
+    {
+        Marshal.FreeHGlobal((nint)_reference);
+        _reference = null;
+        Console.WriteLine("Free");
+    }
 
     public ref T this[int i]
     {
@@ -25,30 +48,18 @@ unsafe class AllocSpan<T> where T : unmanaged
 
     ref T GetElement(int i)
     {
-        if (i < 0 || i >= _length)
+        if (i < 0 || i >= Length)
             throw new IndexOutOfRangeException();
+
+        if (_reference is null)
+            throw new Exception();
+
         return ref *(_reference + i);
     }
 
-    bool Allocate()
-    {
-        try
-        {
-            _reference = (T*)Marshal.AllocHGlobal(_length * Marshal.SizeOf<T>());
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    public void Free() =>
-        Marshal.FreeHGlobal((nint)_reference);
-
     public Span<T> Slice(int start, int length)
     {
-        if (start + length > _length)
+        if (start + length > Length)
             throw new IndexOutOfRangeException();
         if (start < 0 || length <= 0)
             throw new ArgumentException();
@@ -56,5 +67,6 @@ unsafe class AllocSpan<T> where T : unmanaged
         return new Span<T>(_reference + start, length);
     }
 
-    public static implicit operator Span<T>(AllocSpan<T> d) => new(d._reference, d._length);
+    public static implicit operator Span<T>(AllocSpan<T> d) => new(d._reference, d.Length);
+    public static implicit operator ReadOnlySpan<T>(AllocSpan<T> d) => new(d._reference, d.Length);
 }
