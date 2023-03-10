@@ -27,7 +27,6 @@ public abstract class IShader
     protected MKVector4 WorldToScreenPos(MKVector3 p) =>
         projectionTransform * cameraTransform * modelTransform * new MKVector4(p, 1f);
 
-    
     protected static MKVector3 TexelColor(ref Texture texture, MKVector2 uv)
     {
         float u = Math.Clamp(uv.X, 0f, 1f);

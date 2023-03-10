@@ -1,11 +1,11 @@
-﻿#define MacOS
+﻿//#define MacOS
 
 using MikoEngine;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-const int height = 5000;
-const int width = 5000;
+const int height = 1000;
+const int width = 1000;
 
 Camera camera = new()
 {
@@ -19,25 +19,23 @@ Camera camera = new()
     Mode = ProjectionMode.Perspective
 };
 
-#if MacOS
-using Image<Rgb24> textureImage = Image.Load<Rgb24>(@"/Users/beta/Desktop/texture.jpg");
-#else
-using Image<Rgb24> textureImage = Image.Load<Rgb24>(@"D:\texture.jpg");
-#endif
+MKMatrix4x4 transform = MKMatrix4x4.Identity * 2f;
+transform[4, 4] = 1;
 
-Model model = new Cube();
-model.Transform = MKMatrix4x4.Identity * 2f;
-model.Transform[4, 4] = 1;
-model.Shader = new LitShader()
+LitShader shader = new LitShader()
 {
     Smoothness = 0.8f,
     Metallic = 1f,
 #if MacOS
-    Texture = TextureCreator.Create(@"/Users/beta/Desktop/texture.jpg")
+    Texture = TextureCreator.Create(@"./texture.jpg")
 #else
-    Texture = TextureCreator.Create(@"D:\texture.jpg")
+    Texture = TextureCreator.Create(@"\texture.jpg")
 #endif
 };
+
+var model = ModelCreator.Create(@"\Cube.mkmodel")
+                        .ApplyTransform(transform)
+                        .UseShader(shader);
 
 MKVector4 lightPosition = new(0f, 0f, 3f, 1f);
 Light light0 = new()

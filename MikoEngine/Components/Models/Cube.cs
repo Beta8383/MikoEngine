@@ -4,7 +4,7 @@ public class Cube : Model
 {
     public Cube()
     {
-        Data = new[]
+        float[] Data = new[]
         {
             //front
             -0.5f, 0.5f, 0.5f, 0f, 0f, 1f, 0f, 1f,
@@ -15,12 +15,12 @@ public class Cube : Model
             -0.5f, -0.5f, 0.5f, 0f, 0f, 1f, 0f, 0f,
 
             //back
-            -0.5f, 0.5f, -0.5f, 0f, 0f, -1f, 1f, 1f,
-            0.5f, 0.5f, -0.5f, 0f, 0f, -1f, 0f, 1f,
-            0.5f, -0.5f, -0.5f, 0f, 0f, -1f, 0f, 0f,
-            -0.5f, 0.5f, -0.5f, 0f, 0f, -1f, 1f, 0f,
-            0.5f, -0.5f, -0.5f, 0f, 0f, -1f, 0f, 0f,
-            -0.5f, -0.5f, -0.5f, 0f, 0f, -1f, 1f, 0f,
+            -0.5f, 0.5f, -0.5f, 0f, 0f, -1f, 0f, 0f,
+            0.5f, 0.5f, -0.5f, 0f, 0f, -1f, 1f, 0f,
+            0.5f, -0.5f, -0.5f, 0f, 0f, -1f, 1f, 1f,
+            -0.5f, 0.5f, -0.5f, 0f, 0f, -1f, 0f, 0f,
+            0.5f, -0.5f, -0.5f, 0f, 0f, -1f, 1f, 1f,
+            -0.5f, -0.5f, -0.5f, 0f, 0f, -1f, 0f, 1f,
 
             //up
             -0.5f, 0.5f, -0.5f, 0f, 1f, 0f, 0f, 1f,

@@ -50,7 +50,7 @@ public unsafe partial class MKEngine
         pixelsBuffer[index + 2] = Math.Clamp(color.Z, 0f, 1f);
     }
 
-    private void Rasterize(MKVector4* vectors, int count)
+    private void Rasterize(AllocSpan<MKVector4> vectors, int count)
     {
         Parallel.For(0, count / 3, index =>
         {
@@ -98,9 +98,8 @@ public unsafe partial class MKEngine
         });
     }
 
-    private void Shading(float* _v2fs, IShader shader)
+    private void Shading(AllocSpan<float> v2fs, IShader shader)
     {
-        float* v2fs = _v2fs;
         int pixels = width * height;
 
         Parallel.For(0, pixels, bufferIndex =>
@@ -124,6 +123,9 @@ public unsafe partial class MKEngine
 
     private void RenderModel(Model model)
     {
+        if (model.Data is null)
+            return;
+
         IShader shader = model.Shader;
         shader.modelTransform = model.Transform;
         shader.projectionTransform = projectionTransform;
@@ -132,52 +134,42 @@ public unsafe partial class MKEngine
         //shader.light1 = lights[1];
         shader.camera = camera;
 
-        fixed (float* modeldata = model.Data)
+        int a2vLength = shader.a2vLength;
+        int verticescount = model.Data.Length / a2vLength;
+
+        int v2fLength = shader.v2fLength;
+        AllocSpan<float> v2fs = new(shader.v2fLength * verticescount);
+
+        AllocSpan<MKVector4> vectors = new(verticescount);
+
+        TimeTest.Run(() =>
         {
-            float* a2vs = modeldata;
-
-            int a2vLength = shader.a2vLength;
-            int verticescount = model.Data.Length / a2vLength;
-
-            int v2fLenght = shader.v2fLength;
-            float* v2fsPtr = (float*)Marshal.AllocHGlobal(shader.v2fLength * verticescount * sizeof(float));
-
-            MKVector4* vectorsPtr = (MKVector4*)Marshal.AllocHGlobal(verticescount * sizeof(MKVector4));
-
-#if DEBUG
-            Span<float> v2fsSpan = new(v2fsPtr, shader.v2fLength * verticescount);
-            Span<float> vectorsSpan = new(vectorsPtr, verticescount);
-#endif
-
-            TimeTest.Run(() =>
+            for (int index = 0; index < verticescount; index++)
+            //Parallel.For(0, verticescount, index =>
             {
-                for (int index = 0; index < verticescount; index++)
-                //Parallel.For(0, verticescount, index =>
-                {
-                    Span<float> a2v = new(a2vs + index * a2vLength, a2vLength);
-                    Span<float> v2f = new(v2fsPtr + index * v2fLenght, v2fLenght);
-                    ref MKVector4 vector = ref *(vectorsPtr + index);
-                    vector = shader.Vert(a2v, v2f);
-                    vector = viewportTransform * vector;
-                    vector.X /= vector.W;
-                    vector.Y /= vector.W;
-                    vector.Z /= vector.W;
-                }
-            }, "VertexShader");
+                Span<float> a2v = model.Data.Slice(index * a2vLength, a2vLength);
+                Span<float> v2f = v2fs.Slice(index * v2fLength, v2fLength);
+                ref MKVector4 vector = ref vectors[index];
+                vector = shader.Vert(a2v, v2f);
+                vector = viewportTransform * vector;
+                vector.X /= vector.W;
+                vector.Y /= vector.W;
+                vector.Z /= vector.W;
+            }
+        }, "VertexShader");
 
-            Array.Fill<int>(coveredIndexBuffer, -1);
-            TimeTest.Run(() =>
-                Rasterize(vectorsPtr, verticescount)
-            , "Rasterize");
+        Array.Fill<int>(coveredIndexBuffer, -1);
+        TimeTest.Run(() =>
+            Rasterize(vectors, verticescount)
+        , "Rasterize");
 
-            TimeTest.Run(() =>
-            {
-                Shading(v2fsPtr, shader);
-            }, "Shading");
+        TimeTest.Run(() =>
+        {
+            Shading(v2fs, shader);
+        }, "Shading");
 
-            Marshal.FreeHGlobal((nint)v2fsPtr);
-            Marshal.FreeHGlobal((nint)vectorsPtr);
-        }
+        v2fs.Free();
+        vectors.Free();
     }
 
     public ReadOnlySpan<float> GetFrame()
@@ -201,7 +193,6 @@ public unsafe partial class MKEngine
         Array.Fill<float>(zBuffer, float.NegativeInfinity);
     }
 
-    
     public MKEngine SetCamera(Camera camera)
     {
         this.camera = camera;
