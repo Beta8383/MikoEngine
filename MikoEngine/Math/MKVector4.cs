@@ -92,6 +92,14 @@ public struct MKVector4 : IEquatable<MKVector4>
     public static MKVector4 operator *(float scale, MKVector4 vec) => vec * scale;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MKVector4 Lerp(MKVector4 vec1, MKVector4 vec2) =>
+        new MKVector4(vec1.X * vec2.X, vec1.Y * vec2.Y, vec1.Z * vec2.Z, vec1.W * vec2.W);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MKVector4 Lerp(MKVector4 vec1, MKVector4 vec2, float value) =>
+        vec1 * value + vec2 * (1 - value);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public float Distance() =>
         MathF.Sqrt(X * X + Y * Y + Z * Z + W * W);
 

@@ -1,17 +1,14 @@
-﻿#define MacOS
+﻿//#define MacOS
 
+using System.Diagnostics;
 using MikoEngine;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-const int height = 1000;
-const int width = 1000;
+const int height = 800;
+const int width = 800;
 
-#if MacOS
-const string prePath = @"./";
-#else
-const string prePath = @"\";
-#endif
+string currentPath = AppDomain.CurrentDomain.BaseDirectory;
 
 Camera camera = new()
 {
@@ -32,12 +29,8 @@ LitShader shader = new()
 {
     Smoothness = 0.5f,
     Metallic = 1f,
-    Texture = TextureCreator.Create(prePath + "texture.jpg")
+    Texture = TextureCreator.Create(currentPath + "texture.jpg")
 };
-
-var model = ModelCreator.Create(prePath + "Cube.mkmodel")
-                        .ApplyTransform(transform)
-                        .UseShader(shader);
 
 MKVector4 lightPosition = new(0f, 0f, 3f, 1f);
 Light light0 = new()
@@ -55,7 +48,10 @@ Light light1 = new()
     Intensity = 1f,
     Type = LightType.Area
 };
-
+System.Console.WriteLine(Process.GetCurrentProcess().WorkingSet64);
+var model = ModelCreator.Create(currentPath + "Cube.mkmodel")
+                        .ApplyTransform(transform)
+                        .UseShader(shader);
 MKEngine engine = new(height, width);
 engine.SetCamera(camera)
       .AddLight(light0)
@@ -84,6 +80,8 @@ MKMatrix4x4 rotate = new(MathF.Cos(0.017453f * 6), 0, -MathF.Sin(0.017453f * 6),
                              0, 1, 0, 0,
                              MathF.Sin(0.017453f * 6), 0, MathF.Cos(0.017453f * 6), 0,
                              0, 0, 0, 1);
+System.Console.WriteLine(Process.GetCurrentProcess().WorkingSet64);
 engine.Dispose();
-model = null;
-GC.Collect();
+shader.Texture.Dispose();
+//GC.Collect();
+System.Console.WriteLine(Process.GetCurrentProcess().WorkingSet64);

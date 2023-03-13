@@ -43,27 +43,27 @@ public class LitShader : Shader<a2v, v2f>
         return WorldToScreenPos(input.Position);
     }
 
-    MKVector4 HalfLambert(Light light, MKVector3 position, MKVector3 normal, MKVector3 color)
+    MKVector4 HalfLambert(Light light, MKVector3 position, MKVector3 normal, MKVector4 color)
     {
         if (light.Intensity == 0)
             return MKVector4.Zero;
 
         if (light.Type == LightType.Area)
-            return new(MKVector3.Lerp(light.Color * light.Intensity, color) * smoothness, 1f);
+            return MKVector4.Lerp(new(light.Color * light.Intensity ,1f), color) * smoothness;
        
         MKVector3 LightDirection;
         float intensity;
         if (light.Type is LightType.Point)
         {
-            MKVector3 position2light = light.Position - position;
-            float Distance = position2light.Distance();
+            LightDirection = light.Position - position;
+            float Distance = LightDirection.Distance();
             float DistanceSquare = Max(Distance * Distance, 1f);
-            LightDirection = position2light.Normalize();
+            LightDirection = LightDirection.Normalize();
             intensity = light.Intensity / DistanceSquare;
         }
         else
         {
-            LightDirection = light.Position - light.Direction;
+            LightDirection = (light.Position - light.Direction).Normalize();
             intensity = light.Intensity;
         }
 
@@ -75,12 +75,12 @@ public class LitShader : Shader<a2v, v2f>
         //half-lambert
         MKVector3 diffuse = (Max(LightDirection * normal, 0f) * 0.5f + 0.5f) * intensity * light.Color;
         MKVector3 highlight = MathF.Pow(Max(HalfwayDirection * normal, 0f), 64) * intensity * light.Color;
-        return new(MKVector3.Lerp(diffuse, color) * smoothness + highlight , 1f);
+        return MKVector4.Lerp(new(diffuse, 1f), color) * smoothness + new MKVector4(highlight, 1f);
     }
 
     public override MKVector4 Frag(ref v2f input)
     {
-        MKVector3 texColor = TexelColor(ref Texture, +input.UV, 1);
+        MKVector4 texColor = TexelColor(Texture, input.UV);
         return HalfLambert(light0, input.Position, input.Normal, texColor) +
                HalfLambert(light1, input.Position, input.Normal, texColor) +
                HalfLambert(light2, input.Position, input.Normal, texColor) +

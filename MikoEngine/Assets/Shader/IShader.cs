@@ -28,38 +28,31 @@ public abstract class IShader
     protected MKVector4 WorldToScreenPos(MKVector3 p) =>
         projectionTransform * cameraTransform * modelTransform * new MKVector4(p, 1f);
 
-    protected static MKVector3 TexelColor(ref Texture texture, MKVector2 uv)
+    protected static MKVector4 TexelColor(Texture texture, MKVector2 uv)
     {
-        float u = Math.Clamp(uv.X, 0f, 1f);
-        float v = Math.Clamp(uv.Y, 0f, 1f);
-        int x = (int)((texture.width - 1) * u);
-        int y = (int)((texture.height - 1) * v);
-        int index = (y * texture.width + x) * texture.bytesPerPixel;
-        return new(texture.data[index], texture.data[index + 1], texture.data[index + 2]);
+        int x = (int)((texture.width - 1) * Math.Clamp(uv.X, 0f, 1f));
+        int y = (int)((texture.height - 1) * Math.Clamp(uv.Y, 0f, 1f));
+        return texture.Data[y * texture.width + x];
     }
 
-    protected static MKVector3 TexelColor(ref Texture texture, MKVector2 uv, int i)
+    protected static MKVector4 BilinearTexelColor(Texture texture, MKVector2 uv)
     {
-        float x = Math.Clamp(uv.X, 0f, 1f) * (texture.width - 1);
-        float y = Math.Clamp(uv.Y, 0f, 1f) * (texture.height - 1);
+        float x = (texture.width - 1) * Math.Clamp(uv.X, 0f, 1f);
+        float y = (texture.height - 1) * Math.Clamp(uv.Y, 0f, 1f);
+
         int x0 = (int)Math.Floor(x);
         int y0 = (int)Math.Floor(y);
         int x1 = Min(x0 + 1, texture.width - 1);
         int y1 = Min(y0 + 1, texture.height - 1);
 
-        int pos0_0 = (y0 * texture.width + x0) * texture.bytesPerPixel;
-        int pos1_0 = (y0 * texture.width + x1) * texture.bytesPerPixel;
-        int pos0_1 = (y1 * texture.width + x0) * texture.bytesPerPixel;
-        int pos1_1 = (y1 * texture.width + x1) * texture.bytesPerPixel;
+        MKVector4 color0_0 = texture.Data[y0 * texture.width + x0];
+        MKVector4 color1_0 = texture.Data[y0 * texture.width + x1];
+        MKVector4 color0_1 = texture.Data[y1 * texture.width + x0];
+        MKVector4 color1_1 = texture.Data[y1 * texture.width + x1];
 
-        MKVector3 color0_0 = new(texture.data[pos0_0], texture.data[pos0_0 + 1], texture.data[pos0_0 + 2]);
-        MKVector3 color1_0 = new(texture.data[pos1_0], texture.data[pos1_0 + 1], texture.data[pos1_0 + 2]);
-        MKVector3 color0_1 = new(texture.data[pos0_1], texture.data[pos0_1 + 1], texture.data[pos0_1 + 2]);
-        MKVector3 color1_1 = new(texture.data[pos1_1], texture.data[pos1_1 + 1], texture.data[pos1_1 + 2]);
-
-        MKVector3 left = color0_0 + (color0_1 - color0_0) * (y - y0);
-        MKVector3 right = color1_0 + (color1_1 - color1_0) * (y - y0);
-        return left + (right - left) * (x - x0);
+        MKVector4 left = MKVector4.Lerp(color0_0, color0_1, y1 - y);
+        MKVector4 right = MKVector4.Lerp(color1_0, color1_1, y1 - y);
+        return MKVector4.Lerp(left, right, x1 - x);
     }
     #endregion
 }

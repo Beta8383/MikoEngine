@@ -11,7 +11,7 @@ public partial class MKEngine : IDisposable
     private AllocSpan<MKVector3> pixelsBuffer;
     private AllocSpan<float> zBuffer;
     private AllocSpan<int> coveredIndexBuffer;
-    private MKVector3[] barycentricBuffer;
+    private AllocSpan<MKVector3> barycentricBuffer;
     private MKVector4 background;
 
     List<Model> models = new();
@@ -36,7 +36,7 @@ public partial class MKEngine : IDisposable
 
         zBuffer = new(pixels);
         coveredIndexBuffer = new(pixels);
-        barycentricBuffer = new MKVector3[pixels];
+        barycentricBuffer = new(pixels);
         pixelsBuffer = new(pixels);
     }
 
@@ -53,6 +53,9 @@ public partial class MKEngine : IDisposable
         pixelsBuffer.Dispose();
         zBuffer.Dispose();
         coveredIndexBuffer.Dispose();
+        barycentricBuffer.Dispose();
+        foreach (var model in models)
+            model.Dispose();
     }
 
     private void SetPixel(MKVector4 color, int index)
@@ -94,14 +97,14 @@ public partial class MKEngine : IDisposable
                         i *= depth;
                         j *= depth;
                         k *= depth;
-                        if (depth < 0 && depth > zBuffer[y * width + x])
+                        int bufferIndex = y * width + x;
+                        if (depth < 0 && depth > zBuffer[bufferIndex])
                         {
-                            zBuffer[y * width + x] = depth;
-
-                            coveredIndexBuffer[y * width + x] = index;
-                            barycentricBuffer[y * width + x].X = i;
-                            barycentricBuffer[y * width + x].Y = j;
-                            barycentricBuffer[y * width + x].Z = k;
+                            zBuffer[bufferIndex] = depth;
+                            coveredIndexBuffer[bufferIndex] = index;
+                            barycentricBuffer[bufferIndex].X = i;
+                            barycentricBuffer[bufferIndex].Y = j;
+                            barycentricBuffer[bufferIndex].Z = k;
                             //灰度值
                             //SetPixel(new MKVector4(255) * (depth + 1) * 0.5f, x, y);
                         }
@@ -112,22 +115,21 @@ public partial class MKEngine : IDisposable
 
     private void Shading(AllocSpan<float> v2fs, IShader shader)
     {
-        Parallel.For(0, pixels, bufferIndex =>
+        Parallel.For(0, pixels, pixelIndex =>
         {
-            Span<float> v2f = stackalloc float[shader.v2fLength];
-            int vectorIndex = coveredIndexBuffer[bufferIndex];
-
+            int vectorIndex = coveredIndexBuffer[pixelIndex];
             if (vectorIndex == -1) return;
 
+            Span<float> v2f = stackalloc float[shader.v2fLength];
             int v2fsIndex1 = vectorIndex * 3 * shader.v2fLength;
             int v2fsIndex2 = v2fsIndex1 + shader.v2fLength;
             int v2fsIndex3 = v2fsIndex2 + shader.v2fLength;
 
             for (int index = 0; index < shader.v2fLength; index++)
-                v2f[index] = v2fs[v2fsIndex1 + index] * barycentricBuffer[bufferIndex].X +
-                             v2fs[v2fsIndex2 + index] * barycentricBuffer[bufferIndex].Y +
-                             v2fs[v2fsIndex3 + index] * barycentricBuffer[bufferIndex].Z;
-            SetPixel(shader.Frag(v2f), bufferIndex);
+                v2f[index] = v2fs[v2fsIndex1 + index] * barycentricBuffer[pixelIndex].X +
+                             v2fs[v2fsIndex2 + index] * barycentricBuffer[pixelIndex].Y +
+                             v2fs[v2fsIndex3 + index] * barycentricBuffer[pixelIndex].Z;
+            SetPixel(shader.Frag(v2f), pixelIndex);
         });
     }
 

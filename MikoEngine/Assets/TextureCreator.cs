@@ -9,43 +9,43 @@ public static class TextureCreator
     {
         try
         {
-            using Image<Rgb24> image = Image.Load<Rgb24>(path);
+            using Image<Rgba32> image = Image.Load<Rgba32>(path);
             Texture texture = new()
             {
                 width = image.Width,
                 height = image.Height,
                 bytesPerPixel = 3,
-                data = new float[image.Width * image.Height * 3],
+                Data = new(image.Width * image.Height),
             };
             int index = 0;
             for (int i = image.Height - 1; i >= 0; i--)
                 for (int j = 0; j < image.Width; j++)
                 {
-                    Rgb24 color = image[j, i];
-                    texture.data[index++] = color.R / 255f;
-                    texture.data[index++] = color.G / 255f;
-                    texture.data[index++] = color.B / 255f;
+                    Rgba32 color = image[j, i];
+                    texture.Data[index].X = color.R / 255f;
+                    texture.Data[index].Y = color.G / 255f;
+                    texture.Data[index].Z = color.B / 255f;
+                    texture.Data[index].W = color.A / 255f;
+                    index++;
                 }
             return texture;
         }
         catch (Exception e)
         {
-            return Create(MKVector3.Zero);
+            return Create(MKVector4.Zero);
         }
     }
 
-    public static Texture Create(MKVector3 color)
+    public static Texture Create(MKVector4 color)
     {
         Texture texture = new()
         {
             width = 1,
             height = 1,
             bytesPerPixel = 3,
-            data = new float[3],
+            Data = new(1),
         };
-        texture.data[0] = Math.Clamp(color.X, 0f, 1f);
-        texture.data[1] = Math.Clamp(color.Y, 0f, 1f);
-        texture.data[2] = Math.Clamp(color.Z, 0f, 1f);
+        texture.Data[0] = color;
         return texture;
     }
 }

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace MikoEngine;
@@ -38,7 +39,7 @@ unsafe class AllocSpan<T> : IDisposable where T : unmanaged
     {
         Marshal.FreeHGlobal((nint)_reference);
         _reference = null;
-        Console.WriteLine("Free");
+        Console.WriteLine(" Free");
     }
 
     public ref T this[int i]
@@ -48,21 +49,25 @@ unsafe class AllocSpan<T> : IDisposable where T : unmanaged
 
     ref T GetElement(int i)
     {
-        if (i < 0 || i >= Length)
-            throw new IndexOutOfRangeException();
-
+#if DEBUG
         if (_reference is null)
-            throw new Exception();
+            throw new Exception("");
 
+        if (i < 0 || i >= Length)
+            throw new IndexOutOfRangeException($"Index({i}) is out of AllocSpan.");
+#endif
         return ref *(_reference + i);
     }
 
     public Span<T> Slice(int start, int length)
     {
-        if (start + length > Length)
-            throw new IndexOutOfRangeException();
+#if DEBUG
         if (start < 0 || length <= 0)
             throw new ArgumentException();
+        
+        if (start + length > Length)
+            throw new IndexOutOfRangeException();
+#endif
 
         return new Span<T>(_reference + start, length);
     }
