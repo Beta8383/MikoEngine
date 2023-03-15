@@ -30,25 +30,25 @@ public abstract class IShader
 
     protected static MKVector4 TexelColor(Texture texture, MKVector2 uv)
     {
-        int x = (int)((texture.width - 1) * Math.Clamp(uv.X, 0f, 1f));
-        int y = (int)((texture.height - 1) * Math.Clamp(uv.Y, 0f, 1f));
-        return texture.Data[y * texture.width + x];
+        int x = (int)((texture.Width - 1) * Math.Clamp(uv.X, 0f, 1f));
+        int y = (int)((texture.Height - 1) * Math.Clamp(uv.Y, 0f, 1f));
+        return texture.Data[y * texture.Width + x];
     }
 
     protected static MKVector4 BilinearTexelColor(Texture texture, MKVector2 uv)
     {
-        float x = (texture.width - 1) * Math.Clamp(uv.X, 0f, 1f);
-        float y = (texture.height - 1) * Math.Clamp(uv.Y, 0f, 1f);
+        float x = (texture.Width - 1) * Math.Clamp(uv.X, 0f, 1f);
+        float y = (texture.Height - 1) * Math.Clamp(uv.Y, 0f, 1f);
 
         int x0 = (int)Math.Floor(x);
         int y0 = (int)Math.Floor(y);
-        int x1 = Min(x0 + 1, texture.width - 1);
-        int y1 = Min(y0 + 1, texture.height - 1);
+        int x1 = Min(x0 + 1, texture.Width - 1);
+        int y1 = Min(y0 + 1, texture.Height - 1);
 
-        MKVector4 color0_0 = texture.Data[y0 * texture.width + x0];
-        MKVector4 color1_0 = texture.Data[y0 * texture.width + x1];
-        MKVector4 color0_1 = texture.Data[y1 * texture.width + x0];
-        MKVector4 color1_1 = texture.Data[y1 * texture.width + x1];
+        MKVector4 color0_0 = texture.Data[y0 * texture.Width + x0];
+        MKVector4 color1_0 = texture.Data[y0 * texture.Width + x1];
+        MKVector4 color0_1 = texture.Data[y1 * texture.Width + x0];
+        MKVector4 color1_1 = texture.Data[y1 * texture.Width + x1];
 
         MKVector4 left = MKVector4.Lerp(color0_0, color0_1, y1 - y);
         MKVector4 right = MKVector4.Lerp(color1_0, color1_1, y1 - y);

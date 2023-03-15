@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace MikoEngine;
 
-unsafe class AllocSpan<T> : IDisposable where T : unmanaged
+unsafe sealed class AllocSpan<T> : IDisposable where T : unmanaged
 {
     T* _reference;
     public readonly int Length;
@@ -22,6 +22,7 @@ unsafe class AllocSpan<T> : IDisposable where T : unmanaged
 
         Length = length;
         _reference = (T*)Marshal.AllocHGlobal(Length * Marshal.SizeOf<T>());
+        GC.AddMemoryPressure(Length * Marshal.SizeOf<T>());
     }
 
     ~AllocSpan() => Free();
@@ -39,6 +40,7 @@ unsafe class AllocSpan<T> : IDisposable where T : unmanaged
     {
         Marshal.FreeHGlobal((nint)_reference);
         _reference = null;
+        GC.RemoveMemoryPressure(Length * Marshal.SizeOf<T>());
         Console.WriteLine(" Free");
     }
 

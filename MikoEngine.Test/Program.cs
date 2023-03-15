@@ -25,13 +25,6 @@ Camera camera = new()
 MKMatrix4x4 transform = MKMatrix4x4.Identity * 2f;
 transform[4, 4] = 1;
 
-LitShader shader = new()
-{
-    Smoothness = 0.5f,
-    Metallic = 1f,
-    Texture = TextureCreator.Create(currentPath + "texture.jpg")
-};
-
 MKVector4 lightPosition = new(0f, 0f, 3f, 1f);
 Light light0 = new()
 {
@@ -57,6 +50,14 @@ engine.SetCamera(camera)
       .AddLight(light0)
       .AddLight(light1)
       .AddModel(model);
+
+Texture texture = engine.AddTexture(currentPath + "texture.jpg");
+LitShader shader = new()
+{
+    Smoothness = 0.5f,
+    Metallic = 1f,
+    Texture = texture
+};
 
 var frame = engine.GetFrame();
 byte[] pixels = new byte[width * height * 3];

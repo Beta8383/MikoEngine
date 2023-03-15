@@ -13,6 +13,7 @@ public partial class MKEngine : IDisposable
     private AllocSpan<int> coveredIndexBuffer;
     private AllocSpan<MKVector3> barycentricBuffer;
     private MKVector4 background;
+    internal List<Texture> textures;
 
     List<Model> models = new();
     List<Light> lights = new();
