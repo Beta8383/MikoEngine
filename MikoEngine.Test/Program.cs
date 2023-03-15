@@ -42,14 +42,11 @@ Light light1 = new()
     Type = LightType.Area
 };
 System.Console.WriteLine(Process.GetCurrentProcess().WorkingSet64);
-var model = ModelCreator.Create(currentPath + "Cube.mkmodel")
-                        .ApplyTransform(transform)
-                        .UseShader(shader);
+
 MKEngine engine = new(height, width);
 engine.SetCamera(camera)
       .AddLight(light0)
-      .AddLight(light1)
-      .AddModel(model);
+      .AddLight(light1);
 
 Texture texture = engine.AddTexture(currentPath + "texture.jpg");
 LitShader shader = new()
@@ -58,6 +55,11 @@ LitShader shader = new()
     Metallic = 1f,
     Texture = texture
 };
+var model = ModelCreator.Create(currentPath + "Cube.mkmodel")
+                        .ApplyTransform(transform)
+                        .UseShader(shader);
+
+engine.AddModel(model);
 
 var frame = engine.GetFrame();
 byte[] pixels = new byte[width * height * 3];
