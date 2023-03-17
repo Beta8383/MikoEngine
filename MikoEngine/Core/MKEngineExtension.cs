@@ -22,7 +22,7 @@ public static class MKEngineExtension
                     texture.Data[index].W = color.A / 255f;
                     index++;
                 }
-            engine.textures.Add(texture);
+            engine.Textures.Add(texture);
             return texture;
         }
         catch (Exception e)
@@ -35,7 +35,7 @@ public static class MKEngineExtension
     {
         Texture texture = new(1, 1, 3);
         texture.Data[0] = color;
-        engine.textures.Add(texture);
+        engine.Textures.Add(texture);
         return texture;
     }
 }

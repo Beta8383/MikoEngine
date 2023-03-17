@@ -7,18 +7,10 @@ public static class ModelCreator
 {
     public static Model Create(string path)
     {
-        Model model = new();
-        try
-        {
-            using FileStream stream = new(path, FileMode.Open, FileAccess.Read);
-            model.Data = new AllocSpan<float>((int)stream.Length / sizeof(float));
-            stream.Read(MemoryMarshal.Cast<float, byte>(model.Data));
-            return model;
-        }
-        catch (Exception e)
-        {
-            return model;
-        }
+        using FileStream stream = new(path, FileMode.Open, FileAccess.Read);
+        Model model = new((int)stream.Length / sizeof(float));
+        stream.Read(MemoryMarshal.Cast<float, byte>(model.Data));
+        return model;
     }
 
     public static Model UseShader(this Model model, IShader shader)

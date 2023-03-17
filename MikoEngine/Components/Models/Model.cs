@@ -1,16 +1,13 @@
 ﻿namespace MikoEngine;
 
-public class Model :IDisposable
+public class Model
 {
     internal IShader Shader = new LitShader();
     internal AllocSpan<float> Data;
     internal MKMatrix4x4 Transform;
 
-    ~Model() => Data?.Dispose();
-
-    public void Dispose()
+    internal Model(int dataSize)
     {
-        Data?.Dispose();
-        GC.SuppressFinalize(this);
+        Data = new(dataSize);
     }
 }

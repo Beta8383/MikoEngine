@@ -49,6 +49,7 @@ unsafe sealed class AllocSpan<T> : IDisposable where T : unmanaged
         get => ref GetElement(i);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     ref T GetElement(int i)
     {
 #if DEBUG
@@ -61,6 +62,7 @@ unsafe sealed class AllocSpan<T> : IDisposable where T : unmanaged
         return ref *(_reference + i);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Span<T> Slice(int start, int length)
     {
 #if DEBUG
@@ -74,6 +76,9 @@ unsafe sealed class AllocSpan<T> : IDisposable where T : unmanaged
         return new Span<T>(_reference + start, length);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator Span<T>(AllocSpan<T> d) => new(d._reference, d.Length);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator ReadOnlySpan<T>(AllocSpan<T> d) => new(d._reference, d.Length);
 }

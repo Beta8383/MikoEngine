@@ -1,4 +1,5 @@
 ﻿//#define MacOS
+//#define save
 
 using System.Diagnostics;
 using MikoEngine;
@@ -9,6 +10,8 @@ const int height = 800;
 const int width = 800;
 
 string currentPath = AppDomain.CurrentDomain.BaseDirectory;
+
+MKEngine engine = new(height, width);
 
 Camera camera = new()
 {
@@ -41,12 +44,6 @@ Light light1 = new()
     Intensity = 1f,
     Type = LightType.Area
 };
-System.Console.WriteLine(Process.GetCurrentProcess().WorkingSet64);
-
-MKEngine engine = new(height, width);
-engine.SetCamera(camera)
-      .AddLight(light0)
-      .AddLight(light1);
 
 Texture texture = engine.AddTexture(currentPath + "texture.jpg");
 LitShader shader = new()
@@ -59,9 +56,16 @@ var model = ModelCreator.Create(currentPath + "Cube.mkmodel")
                         .ApplyTransform(transform)
                         .UseShader(shader);
 
-engine.AddModel(model);
+engine.SetCamera(camera)
+      .AddLight(light0)
+      .AddLight(light1)
+      .AddModel(model);
 
-var frame = engine.GetFrame();
+System.Console.WriteLine(Process.GetCurrentProcess().WorkingSet64 / 1048576 + "MB");
+engine.GetFrame();
+engine.Dispose();
+System.Console.WriteLine(Process.GetCurrentProcess().WorkingSet64 / 1048576 + "MB");
+#if save
 byte[] pixels = new byte[width * height * 3];
 int index = 0;
 for (int i = 0; i < height;i++)
@@ -72,8 +76,8 @@ for (int i = 0; i < height;i++)
         pixels[index * 3 + 2] = (byte)(frame[index].Z * 255);
         index++;
     }
-
 using Image<Rgb24> image = Image.LoadPixelData<Rgb24>(pixels, width, height);
+
 #if MacOS
 image.SaveAsPng(@"/Users/beta/Desktop/a.png");
 #else
@@ -83,8 +87,4 @@ MKMatrix4x4 rotate = new(MathF.Cos(0.017453f * 6), 0, -MathF.Sin(0.017453f * 6),
                              0, 1, 0, 0,
                              MathF.Sin(0.017453f * 6), 0, MathF.Cos(0.017453f * 6), 0,
                              0, 0, 0, 1);
-System.Console.WriteLine(Process.GetCurrentProcess().WorkingSet64);
-engine.Dispose();
-shader.Texture.Dispose();
-//GC.Collect();
-System.Console.WriteLine(Process.GetCurrentProcess().WorkingSet64);
+#endif

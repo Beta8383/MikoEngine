@@ -1,6 +1,6 @@
 namespace MikoEngine;
 
-public class Texture : IDisposable
+public class Texture
 {
     internal AllocSpan<MKVector4> Data;
     internal readonly int Width, Height, BytesPerPixel;
@@ -11,13 +11,5 @@ public class Texture : IDisposable
         Height = height;
         BytesPerPixel = bytesPerPixel;
         Data = new(Width * Height);
-    }
-
-    ~Texture() => Data?.Dispose();
-
-    public void Dispose()
-    {
-        Data?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }
